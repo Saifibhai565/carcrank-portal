@@ -29,34 +29,42 @@ export default function AdminLogin() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-lavender px-6">
+    <main className="flex min-h-screen items-center justify-center bg-[#09090b] px-6 text-white font-sans select-none">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-panel border border-lavenderLine bg-white p-8"
+        className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/90 p-8 shadow-2xl backdrop-blur-md"
       >
-        <h1 className="font-display text-xl font-extrabold text-ink">
-          Carcrank Admin
-        </h1>
-        <p className="mt-1 text-sm text-slate">
-          Sign in to manage your showroom inventory.
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-white font-black text-xs shadow-sm">
+            P
+          </div>
+          <h1 className="text-base font-black tracking-wider text-white">
+            PLAID DASHBOARD
+          </h1>
+        </div>
+        <p className="text-[10px] font-extrabold text-blue-400 uppercase tracking-widest mb-6">
+          Control Center Pro
         </p>
-        <label htmlFor="password" className="mb-1 mt-6 block text-xs text-slate">
-          Password
+
+        <label htmlFor="password" className="mb-1.5 block text-xs font-bold text-zinc-300">
+          Admin Password
         </label>
         <input
           id="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-panel border border-lavenderLine bg-lavender px-4 py-2.5 text-ink outline-none"
+          placeholder="Enter admin access password"
+          className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-xs text-white outline-none focus:border-blue-600 font-mono shadow-inner"
         />
-        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-2 text-xs font-semibold text-rose-500">{error}</p>}
+        
         <button
           type="submit"
           disabled={loading}
-          className="mt-5 w-full rounded-panel bg-brand py-2.5 font-semibold text-white hover:bg-brandDark disabled:opacity-60"
+          className="mt-6 w-full rounded-xl bg-blue-600 hover:bg-blue-500 py-3 font-bold text-xs text-white transition cursor-pointer shadow-md disabled:opacity-60"
         >
-          {loading ? "Signing in…" : "Sign in"}
+          {loading ? "Authenticating..." : "Access Control Center"}
         </button>
       </form>
     </main>

