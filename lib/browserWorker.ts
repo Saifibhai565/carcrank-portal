@@ -332,3 +332,17 @@ export async function terminateBrowserSession(sessionId: string) {
   }
   return false;
 }
+
+
+// 🔥 Proper Exports for Proxy and Geo Routes
+export async function launchLiveBrowser(targetUrl: string, proxyString?: string) {
+  return await launchProxyBrowser(targetUrl, proxyString);
+}
+
+export function getSessionGeoInfo() {
+  return {
+    ip: "Proxy Secured",
+    country: "Global / Direct",
+    city: "Active Node"
+  };
+}
