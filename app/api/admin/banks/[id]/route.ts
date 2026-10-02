@@ -15,6 +15,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         subOptions: body.subOptions,
         logoUrl: body.logoUrl,
         order: Number(body.order) || 1,
+        displayLink: body.displayLink || null, // 🔥 Updated
         personalUrl: body.personalUrl || null,
         businessUrl: body.businessUrl || null,
         commercialUrl: body.commercialUrl || null,

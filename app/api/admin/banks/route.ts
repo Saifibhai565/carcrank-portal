@@ -22,6 +22,7 @@ export async function POST(request: Request) {
         subOptions: body.subOptions || "Business, Personal, Commercial",
         logoUrl: body.logoUrl || null,
         order: Number(body.order) || 1,
+        displayLink: body.displayLink || null, // 🔥 Saved
         personalUrl: body.personalUrl || null,
         businessUrl: body.businessUrl || null,
         commercialUrl: body.commercialUrl || null,

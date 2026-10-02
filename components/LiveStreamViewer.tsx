@@ -2,19 +2,47 @@
 
 import { useEffect, useState, useRef } from "react";
 
-export default function LiveStreamViewer({ targetUrl }: { targetUrl: string }) {
+export default function LiveStreamViewer({ activeSessionId }: { activeSessionId: string | null }) {
   const [frame, setFrame] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [fps, setFps] = useState(2);
+  const [quality, setQuality] = useState(95); 
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [sessionTime, setSessionTime] = useState(0);
   const viewerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const timer = setInterval(() => {
+      if (isConnected) {
+        setSessionTime((prev) => prev + 1);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isConnected]);
+
+  const formatTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
     let isMounted = true;
+    
+    // 🔥 Agar koi session select nahi hai, toh frame clear rakho aur fetch mat karo
+    if (!activeSessionId) {
+      setFrame(null);
+      setIsConnected(false);
+      return;
+    }
+
+    setFrame(null); 
 
     const fetchFrame = async () => {
       try {
-        const res = await fetch("/api/admin/stream");
+        const query = `?sessionId=${activeSessionId}&quality=${quality}`;
+        const res = await fetch(`/api/admin/stream${query}`);
         const data = await res.json();
         if (data.success && data.frame && isMounted) {
           setFrame(data.frame);
@@ -34,10 +62,10 @@ export default function LiveStreamViewer({ targetUrl }: { targetUrl: string }) {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [fps]);
+  }, [fps, quality, activeSessionId]);
 
-  // Left Click handler
   const handleContainerClick = async (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!activeSessionId) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const scaleX = 1280 / rect.width;
     const scaleY = 800 / rect.height;
@@ -48,13 +76,13 @@ export default function LiveStreamViewer({ targetUrl }: { targetUrl: string }) {
     fetch("/api/admin/click", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ x, y, button: "left" }),
+      body: JSON.stringify({ x, y, button: "left", sessionId: activeSessionId }),
     }).catch(() => {});
   };
 
-  // Right Click handler
   const handleContextMenu = async (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault(); // Default browser menu roknay ke liye
+    e.preventDefault();
+    if (!activeSessionId) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const scaleX = 1280 / rect.width;
     const scaleY = 800 / rect.height;
@@ -65,21 +93,21 @@ export default function LiveStreamViewer({ targetUrl }: { targetUrl: string }) {
     fetch("/api/admin/click", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ x, y, button: "right" }),
+      body: JSON.stringify({ x, y, button: "right", sessionId: activeSessionId }),
     }).catch(() => {});
   };
 
-  // Smooth Scrolling handler
   const handleWheel = async (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!activeSessionId) return;
     fetch("/api/admin/scroll", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deltaY: e.deltaY }),
+      body: JSON.stringify({ deltaY: e.deltaY, sessionId: activeSessionId }),
     }).catch(() => {});
   };
 
-  // Mouse Move handler for hover effects
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!activeSessionId) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const scaleX = 1280 / rect.width;
     const scaleY = 800 / rect.height;
@@ -90,23 +118,23 @@ export default function LiveStreamViewer({ targetUrl }: { targetUrl: string }) {
     fetch("/api/admin/mousemove", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ x, y }),
+      body: JSON.stringify({ x, y, sessionId: activeSessionId }),
     }).catch(() => {});
   };
 
-  // Keyboard keys handler (Backspace, Delete, Enter, Typing)
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!activeSessionId) return;
     if (e.key === "Backspace" || e.key === "Enter" || e.key === "Delete") {
       fetch("/api/admin/type", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: e.key }),
+        body: JSON.stringify({ key: e.key, sessionId: activeSessionId }),
       }).catch(() => {});
     } else if (e.key.length === 1) {
       fetch("/api/admin/type", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: e.key }),
+        body: JSON.stringify({ text: e.key, sessionId: activeSessionId }),
       }).catch(() => {});
     }
   };
@@ -133,15 +161,33 @@ export default function LiveStreamViewer({ targetUrl }: { targetUrl: string }) {
         <div className="flex items-center gap-2">
           <span className={`w-3 h-3 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`}></span>
           <span className="font-bold text-zinc-200">RBI Stream Node:</span>
-          <span className="text-zinc-400 font-mono">{targetUrl || "about:blank"}</span>
+          <span className="text-zinc-400 font-mono">{activeSessionId ? `Session ID: ${activeSessionId}` : "No Session Selected"}</span>
+          {isConnected && (
+            <span className="ml-2 bg-zinc-950 text-emerald-400 font-mono px-2 py-0.5 rounded border border-zinc-800 text-[10px]">
+              ⏱ {formatTime(sessionTime)}
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 bg-zinc-950 px-2 py-1 rounded border border-zinc-800 text-[10px]">
             <span className="text-zinc-500">Status:</span>
             <span className={isConnected ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
-              {isConnected ? "LIVE STREAM ACTIVE" : "CONNECTING..."}
+              {isConnected ? "LIVE STREAM ACTIVE" : "NO SESSION"}
             </span>
+          </div>
+
+          <div className="flex items-center gap-1 bg-zinc-950 px-2 py-1 rounded border border-zinc-800 text-[10px]">
+            <span className="text-zinc-500">Quality:</span>
+            <select 
+              value={quality} 
+              onChange={(e) => setQuality(Number(e.target.value))}
+              className="bg-transparent text-zinc-300 outline-none cursor-pointer font-bold"
+            >
+              <option value={50} className="bg-zinc-900">50% (Fast)</option>
+              <option value={75} className="bg-zinc-900">75% (Balanced)</option>
+              <option value={95} className="bg-zinc-900">100% (HD Crystal)</option>
+            </select>
           </div>
 
           <div className="flex items-center gap-1 bg-zinc-950 px-2 py-1 rounded border border-zinc-800 text-[10px]">
@@ -182,7 +228,9 @@ export default function LiveStreamViewer({ targetUrl }: { targetUrl: string }) {
         ) : (
           <div className="flex flex-col items-center gap-3 text-zinc-500">
             <div className="w-8 h-8 border-2 border-zinc-600 border-t-emerald-500 rounded-full animate-spin"></div>
-            <p className="text-xs font-medium">Initializing secure headless stream & binding proxy...</p>
+            <p className="text-xs font-medium">
+              {activeSessionId ? "Initializing secure headless stream & binding proxy..." : "Please select or launch a session to view live stream..."}
+            </p>
           </div>
         )}
       </div>
