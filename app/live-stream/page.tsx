@@ -1,9 +1,9 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 
-export default function LiveStreamPage() {
+function LiveStreamContent() {
   const searchParams = useSearchParams();
   const bankName = searchParams.get("bank") || "Target Portal";
   const bankType = searchParams.get("type") || "Standard";
@@ -159,5 +159,13 @@ export default function LiveStreamPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LiveStreamPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-950 text-white">Loading Portal...</div>}>
+      <LiveStreamContent />
+    </Suspense>
   );
 }
