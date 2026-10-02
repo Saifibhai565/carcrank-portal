@@ -1,5 +1,5 @@
-# 1. Base Image
-FROM node:20-alpine AS builder
+# 1. Base Image (Using Debian-based Node 20 to avoid Prisma musl/OpenSSL binary mismatch issues)
+FROM node:20 AS builder
 WORKDIR /app
 
 # 2. Install dependencies
@@ -12,7 +12,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # 4. Production image
-FROM node:20-alpine AS runner
+FROM node:20 AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
