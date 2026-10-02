@@ -8,6 +8,7 @@ RUN npm ci
 
 # 3. Copy source code, generate prisma, and build
 COPY . .
+ENV PRISMA_CLI_BINARY_TARGETS="native,linux-musl-openssl-3.0.x"
 RUN npx prisma generate
 RUN npm run build
 
