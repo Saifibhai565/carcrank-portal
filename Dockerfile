@@ -6,8 +6,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# 3. Copy source code and build
+# 3. Copy source code, generate prisma, and build
 COPY . .
+RUN npx prisma generate
 RUN npm run build
 
 # 4. Production image
