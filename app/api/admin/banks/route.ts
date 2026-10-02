@@ -7,9 +7,8 @@ export async function GET() {
       orderBy: { order: "asc" },
     });
     return NextResponse.json({ success: true, data: banks });
-  } catch (error) {
-    console.error("Failed to fetch banks:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch banks" }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
@@ -18,8 +17,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const newBank = await prisma.bank.create({
       data: {
-        name: body.name,
-        subtitle: body.subtitle,
+        name: body.name || "New Bank",
+        subtitle: body.subtitle || "Multiple available",
         subOptions: body.subOptions || "Business, Personal, Commercial",
         logoUrl: body.logoUrl || null,
         order: Number(body.order) || 1,
@@ -33,8 +32,8 @@ export async function POST(request: Request) {
       },
     });
     return NextResponse.json({ success: true, data: newBank });
-  } catch (error) {
-    console.error("Failed to create bank:", error);
-    return NextResponse.json({ success: false, error: "Failed to create bank" }, { status: 500 });
+  } catch (error: any) {
+    console.error("POST Bank Error:", error);
+    return NextResponse.json({ success: false, error: error.message || "Failed to create bank" }, { status: 500 });
   }
 }

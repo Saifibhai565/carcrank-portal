@@ -1,0 +1,4 @@
+jo adminn panal mai Configure Popup hai us ki file component mai 
+configurePopupModal.tsx hai 
+
+
