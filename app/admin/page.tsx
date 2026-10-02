@@ -150,13 +150,13 @@ export default function AdminPage() {
     }
   };
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    const interval = setInterval(() => {
-      fetchLeads(false);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [isAuthenticated]);
+ // useEffect(() => {
+ //   if (!isAuthenticated) return;
+ //   const interval = setInterval(() => {
+ //     fetchLeads(false);
+ //   }, 3000);
+ //   return () => clearInterval(interval);
+ // }, [isAuthenticated]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

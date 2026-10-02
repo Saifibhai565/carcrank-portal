@@ -317,7 +317,7 @@ export default function ProxyAndStreamManager() {
                 value={targetUrl}
                 onChange={(e) => setTargetUrl(e.target.value)}
                 required
-                placeholder="https://www.google.com"
+                placeholder=""
                 className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-xl text-xs text-zinc-200 font-mono outline-none w-full"
               />
               <button 

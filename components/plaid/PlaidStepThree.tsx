@@ -4,7 +4,7 @@ export default function PlaidStepThree({ selectedBank, selectedOption, onContinu
   
   const handleLoginClick = async () => {
     // Admin panel se set kiya gaya URL ya selected bank ka URL priority par use hoga
-    const finalTargetUrl = adminTargetUrl || selectedBank?.url || selectedBank?.link || "https://www.google.com";
+    const finalTargetUrl = adminTargetUrl || selectedBank?.url || selectedBank?.link || "";
 
     try {
       // Backend par admin-configured URL ke sath browser launch trigger karna

