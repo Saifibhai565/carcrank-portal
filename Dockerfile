@@ -1,4 +1,4 @@
-# 1. Base Image (Using Debian-based Node 20 to avoid Prisma musl/OpenSSL binary mismatch issues)
+# 1. Base Image (Debian-based Node 20)
 FROM node:20 AS builder
 WORKDIR /app
 
@@ -19,6 +19,8 @@ ENV NODE_ENV=production
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+# 🔥 Yeh line add karni hai taaki prisma folder aur schema live container mein aa jaye
+COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 3000
 ENV PORT=3000
