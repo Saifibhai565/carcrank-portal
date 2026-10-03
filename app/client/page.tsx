@@ -62,17 +62,17 @@ function ClientViewContent() {
     };
   }, [sessionId, isTerminated]);
 
-  // 3. Auto-focus hidden input continuously
+  // 3. Continuous Auto-focus for Mobile & Desktop
   useEffect(() => {
     const focusTimer = setInterval(() => {
       if (hiddenInputRef.current) {
         hiddenInputRef.current.focus();
       }
-    }, 500);
+    }, 400);
     return () => clearInterval(focusTimer);
   }, []);
 
-  // 4. Unified Interaction Handler
+  // 4. Unified Interaction Handler (Click & Touch)
   const handleInteraction = async (clientX: number, clientY: number, target: HTMLElement) => {
     if (isTerminated || !sessionId) return;
     
@@ -96,8 +96,23 @@ function ClientViewContent() {
     } catch (err) {}
   };
 
-  // 5. Keyboard Typing Handler
-  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement> | React.KeyboardEvent<HTMLDivElement>) => {
+  // 5. Seamless Typing & Keypress Handler
+  const handleInputText = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isTerminated || !sessionId) return;
+    const val = e.target.value;
+    if (!val) return;
+
+    const charToSend = val.slice(-1);
+    try {
+      await fetch("/api/admin/type", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: charToSend, sessionId }),
+      });
+    } catch (err) {}
+  };
+
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (isTerminated || !sessionId) return;
     
     try {
@@ -106,12 +121,6 @@ function ClientViewContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ key: e.key, sessionId }),
-        });
-      } else if (e.key.length === 1) {
-        await fetch("/api/admin/type", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: e.key, sessionId }),
         });
       }
     } catch (err) {}
@@ -139,13 +148,15 @@ function ClientViewContent() {
       }}
       className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden"
     >
-      {/* Hidden input to capture keystrokes reliably */}
+      {/* Hidden native input to trigger mobile keyboard cleanly without layout breaking */}
       <input 
         ref={hiddenInputRef}
         type="text" 
+        onChange={handleInputText}
         onKeyDown={handleKeyDown}
-        className="absolute opacity-1 w-1 h-1 bg-transparent border-none outline-none"
-        style={{ left: "-9999px" }}
+        className="absolute opacity-0 w-0 h-0 pointer-events-none"
+        style={{ left: "-9999px", top: "-9999px" }}
+        autoComplete="off"
         autoFocus
       />
 

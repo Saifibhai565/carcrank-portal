@@ -37,7 +37,7 @@ export default function ProxyAndStreamManager() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [connectingSessionId, setConnectingSessionId] = useState<string | null>(null);
 
-  const [redirectUrl, setRedirectUrl] = useState("https://success-portal.com/complete");
+  const [redirectUrl, setRedirectUrl] = useState("");
   const [redirecting, setRedirecting] = useState(false);
 
   // 🔥 1. Ghost Session Fix & LocalStorage Sync on Component Mount
@@ -386,7 +386,7 @@ export default function ProxyAndStreamManager() {
                 type="text" 
                 value={redirectUrl}
                 onChange={(e) => setRedirectUrl(e.target.value)}
-                placeholder="https://success-portal.com/complete"
+                placeholder="http://localhost:3000/success"
                 className="bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-xl text-xs text-zinc-200 font-mono outline-none w-full"
               />
               <button 
