@@ -9,6 +9,7 @@ function ClientViewContent() {
   const [sessionId, setSessionId] = useState(urlSessionId);
   const [frame, setFrame] = useState<string | null>(null);
   const [isTerminated, setIsTerminated] = useState(false);
+  const imageRef = useRef<HTMLImageElement>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -68,24 +69,47 @@ function ClientViewContent() {
       if (hiddenInputRef.current) {
         hiddenInputRef.current.focus();
       }
-    }, 400);
+    }, 300);
     return () => clearInterval(focusTimer);
   }, []);
 
-  // 4. Unified Interaction Handler (Click & Touch)
-  const handleInteraction = async (clientX: number, clientY: number, target: HTMLElement) => {
-    if (isTerminated || !sessionId) return;
+  // 4. Precise Coordinate Mapping with object-contain aspect ratio calculation
+  const handleInteraction = async (clientX: number, clientY: number) => {
+    if (isTerminated || !sessionId || !imageRef.current) return;
     
     if (hiddenInputRef.current) {
       hiddenInputRef.current.focus();
     }
 
-    const rect = target.getBoundingClientRect();
-    const scaleX = 1280 / rect.width;
-    const scaleY = 800 / rect.height;
-    
-    const x = Math.round((clientX - rect.left) * scaleX);
-    const y = Math.round((clientY - rect.top) * scaleY);
+    const rect = imageRef.current.getBoundingClientRect();
+    const containerWidth = rect.width;
+    const containerHeight = rect.height;
+
+    // Remote browser original resolution is 1280x800 (aspect ratio 1.6)
+    const targetAspect = 1280 / 800;
+    const containerAspect = containerWidth / containerHeight;
+
+    let renderWidth = containerWidth;
+    let renderHeight = containerHeight;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (containerAspect > targetAspect) {
+      renderWidth = containerHeight * targetAspect;
+      offsetX = (containerWidth - renderWidth) / 2;
+    } else {
+      renderHeight = containerWidth / targetAspect;
+      offsetY = (containerHeight - renderHeight) / 2;
+    }
+
+    const clickX = clientX - rect.left - offsetX;
+    const clickY = clientY - rect.top - offsetY;
+
+    // Ignore clicks outside the actual rendered image frame
+    if (clickX < 0 || clickX > renderWidth || clickY < 0 || clickY > renderHeight) return;
+
+    const x = Math.round((clickX / renderWidth) * 1280);
+    const y = Math.round((clickY / renderHeight) * 800);
     
     try {
       await fetch("/api/admin/click", {
@@ -96,13 +120,15 @@ function ClientViewContent() {
     } catch (err) {}
   };
 
-  // 5. Seamless Typing & Keypress Handler
+  // 5. Flawless Input & Backspace Sync Handler
   const handleInputText = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isTerminated || !sessionId) return;
     const val = e.target.value;
     if (!val) return;
 
-    const charToSend = val.slice(-1);
+    const charToSend = val;
+    e.target.value = ""; // Clear immediately so backspace and typing stay perfectly synced
+
     try {
       await fetch("/api/admin/type", {
         method: "POST",
@@ -140,28 +166,29 @@ function ClientViewContent() {
 
   return (
     <div 
-      onClick={(e) => handleInteraction(e.clientX, e.clientY, e.currentTarget)}
+      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden"
+      onClick={(e) => handleInteraction(e.clientX, e.clientY)}
       onTouchEnd={(e) => {
         if (e.changedTouches?.[0]) {
-          handleInteraction(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.currentTarget);
+          handleInteraction(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
         }
       }}
-      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden"
     >
-      {/* Hidden native input to trigger mobile keyboard cleanly without layout breaking */}
+      {/* Hidden native input positioned to capture mobile keyboard natively without visible layout bars */}
       <input 
         ref={hiddenInputRef}
         type="text" 
         onChange={handleInputText}
         onKeyDown={handleKeyDown}
-        className="absolute opacity-0 w-0 h-0 pointer-events-none"
-        style={{ left: "-9999px", top: "-9999px" }}
+        className="absolute opacity-0 w-full h-full inset-0 cursor-default"
         autoComplete="off"
+        autoCapitalize="off"
         autoFocus
       />
 
       {frame ? (
         <img 
+          ref={imageRef}
           src={frame} 
           alt="Remote Browser Viewport" 
           className="w-full h-full object-contain pointer-events-none"
