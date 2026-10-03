@@ -9,7 +9,7 @@ function ClientViewContent() {
   const [frame, setFrame] = useState<string | null>(null);
   const [isTerminated, setIsTerminated] = useState(false);
 
-  // 🔥 1. Admin Redirect & Close Listener Polling
+  // 1. Ultra-fast Redirect / Session Termination Polling (300ms)
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -23,12 +23,12 @@ function ClientViewContent() {
           }
         }
       } catch (err) {}
-    }, 500);
+    }, 300);
 
     return () => clearInterval(interval);
   }, []);
 
-  // 🔥 2. Frame Fetching Polling
+  // 2. High-speed Frame Streaming Polling (350ms)
   useEffect(() => {
     if (isTerminated) return;
     let isMounted = true;
@@ -46,7 +46,7 @@ function ClientViewContent() {
     };
 
     fetchFrame();
-    const interval = setInterval(fetchFrame, 600);
+    const interval = setInterval(fetchFrame, 350);
 
     return () => {
       isMounted = false;
@@ -54,15 +54,15 @@ function ClientViewContent() {
     };
   }, [sessionId, isTerminated]);
 
-  // 🔥 3. Mouse Click Handler (Sends coordinates to backend Playwright)
-  const handleContainerClick = async (e: React.MouseEvent<HTMLDivElement>) => {
+  // 3. Unified Touch & Mouse Interaction Handler (Instant scaling & response)
+  const handleInteraction = async (clientX: number, clientY: number, target: HTMLElement) => {
     if (isTerminated) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
     const scaleX = 1280 / rect.width;
     const scaleY = 800 / rect.height;
     
-    const x = Math.round((e.clientX - rect.left) * scaleX);
-    const y = Math.round((e.clientY - rect.top) * scaleY);
+    const x = Math.round((clientX - rect.left) * scaleX);
+    const y = Math.round((clientY - rect.top) * scaleY);
     
     try {
       await fetch("/api/admin/click", {
@@ -73,7 +73,18 @@ function ClientViewContent() {
     } catch (err) {}
   };
 
-  // 🔥 4. Mouse Wheel / Scroll Handler
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    handleInteraction(e.clientX, e.clientY, e.currentTarget);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.changedTouches && e.changedTouches.length > 0) {
+      const touch = e.changedTouches[0];
+      handleInteraction(touch.clientX, touch.clientY, e.currentTarget);
+    }
+  };
+
+  // 4. Smooth Scrolling Handler
   const handleWheel = async (e: React.WheelEvent<HTMLDivElement>) => {
     if (isTerminated) return;
     try {
@@ -85,11 +96,11 @@ function ClientViewContent() {
     } catch (err) {}
   };
 
-  // 🔥 5. Keyboard Typing / KeyDown Handler
+  // 5. Fast Keyboard Typing Handler
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (isTerminated) return;
     try {
-      if (e.key === "Backspace" || e.key === "Enter" || e.key === "Delete") {
+      if (e.key === "Backspace" || e.key === "Enter" || e.key === "Delete" || e.key === "Tab") {
         await fetch("/api/admin/type", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -122,8 +133,9 @@ function ClientViewContent() {
       tabIndex={0}
       onKeyDown={handleKeyDown}
       onClick={handleContainerClick}
+      onTouchEnd={handleTouchEnd}
       onWheel={handleWheel}
-      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden focus:outline-none"
+      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden focus:outline-none touch-none"
     >
       {frame ? (
         <img 
@@ -134,7 +146,7 @@ function ClientViewContent() {
       ) : (
         <div className="flex flex-col items-center gap-3 text-zinc-500">
           <div className="w-8 h-8 border-2 border-zinc-600 border-t-emerald-500 rounded-full animate-spin"></div>
-          <p className="text-xs font-medium">Connecting to remote screen {sessionId ? `(${sessionId})` : ""}...</p>
+          <p className="text-xs font-medium">Connecting to remote screen...</p>
         </div>
       )}
     </div>
