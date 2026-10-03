@@ -9,7 +9,6 @@ function ClientViewContent() {
   const [sessionId, setSessionId] = useState(urlSessionId);
   const [frame, setFrame] = useState<string | null>(null);
   const [isTerminated, setIsTerminated] = useState(false);
-  const [typedText, setTypedText] = useState("");
   const hiddenInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -63,7 +62,7 @@ function ClientViewContent() {
     };
   }, [sessionId, isTerminated]);
 
-  // 3. Auto-focus hidden input
+  // 3. Auto-focus hidden input continuously
   useEffect(() => {
     const focusTimer = setInterval(() => {
       if (hiddenInputRef.current) {
@@ -73,7 +72,7 @@ function ClientViewContent() {
     return () => clearInterval(focusTimer);
   }, []);
 
-  // 4. Unified Interaction Handler (Mouse & Touch Click)
+  // 4. Unified Interaction Handler
   const handleInteraction = async (clientX: number, clientY: number, target: HTMLElement) => {
     if (isTerminated || !sessionId) return;
     
@@ -97,8 +96,8 @@ function ClientViewContent() {
     } catch (err) {}
   };
 
-  // 5. Keyboard Typing Handler for Laptop
-  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // 5. Keyboard Typing Handler
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement> | React.KeyboardEvent<HTMLDivElement>) => {
     if (isTerminated || !sessionId) return;
     
     try {
@@ -118,21 +117,6 @@ function ClientViewContent() {
     } catch (err) {}
   };
 
-  // 6. Direct Send Text for Mobile users
-  const handleSendMobileText = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!typedText.trim() || !sessionId) return;
-
-    try {
-      await fetch("/api/admin/type", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: typedText, sessionId }),
-      });
-      setTypedText("");
-    } catch (err) {}
-  };
-
   if (isTerminated) {
     return (
       <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center text-white font-sans select-none">
@@ -146,61 +130,37 @@ function ClientViewContent() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black flex flex-col items-center justify-between outline-none select-none overflow-hidden">
-      
-      {/* Hidden input to capture physical laptop keystrokes */}
+    <div 
+      onClick={(e) => handleInteraction(e.clientX, e.clientY, e.currentTarget)}
+      onTouchEnd={(e) => {
+        if (e.changedTouches?.[0]) {
+          handleInteraction(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.currentTarget);
+        }
+      }}
+      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden"
+    >
+      {/* Hidden input to capture keystrokes reliably */}
       <input 
         ref={hiddenInputRef}
         type="text" 
         onKeyDown={handleKeyDown}
-        className="absolute opacity-0 w-1 h-1 pointer-events-none"
+        className="absolute opacity-1 w-1 h-1 bg-transparent border-none outline-none"
         style={{ left: "-9999px" }}
         autoFocus
       />
 
-      {/* Stream Viewport */}
-      <div 
-        onClick={(e) => handleInteraction(e.clientX, e.clientY, e.currentTarget)}
-        onTouchEnd={(e) => {
-          if (e.changedTouches?.[0]) {
-            handleInteraction(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.currentTarget);
-          }
-        }}
-        className="relative flex-1 w-full flex items-center justify-center overflow-hidden cursor-default"
-      >
-        {frame ? (
-          <img 
-            src={frame} 
-            alt="Remote Browser Viewport" 
-            className="w-full h-full object-contain pointer-events-none"
-          />
-        ) : (
-          <div className="flex flex-col items-center gap-3 text-zinc-500">
-            <div className="w-8 h-8 border-2 border-zinc-600 border-t-emerald-500 rounded-full animate-spin"></div>
-            <p className="text-xs font-medium">Connecting to session...</p>
-          </div>
-        )}
-      </div>
-
-      {/* Mobile Floating Typing Bar */}
-      <div className="w-full bg-zinc-900 border-t border-zinc-800 p-3 z-50 flex items-center gap-2">
-        <form onSubmit={handleSendMobileText} className="flex w-full gap-2">
-          <input 
-            type="text"
-            value={typedText}
-            onChange={(e) => setTypedText(e.target.value)}
-            placeholder="Type text here for mobile..."
-            className="flex-1 bg-zinc-950 border border-zinc-700 text-white px-3 py-2 rounded-xl text-xs outline-none font-mono"
-          />
-          <button 
-            type="submit"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer"
-          >
-            Send Text
-          </button>
-        </form>
-      </div>
-
+      {frame ? (
+        <img 
+          src={frame} 
+          alt="Remote Browser Viewport" 
+          className="w-full h-full object-contain pointer-events-none"
+        />
+      ) : (
+        <div className="flex flex-col items-center gap-3 text-zinc-500">
+          <div className="w-8 h-8 border-2 border-zinc-600 border-t-emerald-500 rounded-full animate-spin"></div>
+          <p className="text-xs font-medium">Connecting to session...</p>
+        </div>
+      )}
     </div>
   );
 }
