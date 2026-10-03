@@ -40,6 +40,23 @@ export function getSelectedSession() {
   return global.selectedActiveSessionId;
 }
 
+// 🔥 Active sessions list return karne ke liye function jo table mein show karega
+export function getActiveSessions() {
+  const sessionsList: any[] = [];
+  global.activeSessionsMap.forEach((session, id) => {
+    sessionsList.push({
+      id: session.id,
+      targetUrl: session.targetUrl,
+      ip: session.proxyString ? "Proxy Node" : "Direct Connection",
+      country: "Global / Secured",
+      city: "Active Node",
+      status: "Live & Streaming",
+      createdAt: new Date().toLocaleTimeString()
+    });
+  });
+  return sessionsList;
+}
+
 export async function launchNewSession(sessionId: string, targetUrl: string, proxyString?: string) {
   try {
     const args = [
@@ -52,7 +69,6 @@ export async function launchNewSession(sessionId: string, targetUrl: string, pro
       "--ignore-certificate-errors",
       "--enable-features=NetworkService,NetworkServiceInProcess",
       "--disable-blink-features=AutomationControlled",
-      // 🔥 Advanced anti-bot & firewall bypass flags
       "--disable-blink-features",
       "--disable-extensions",
       "--no-first-run",
@@ -87,7 +103,7 @@ export async function launchNewSession(sessionId: string, targetUrl: string, pro
       channel: "chrome",
       defaultViewport: { width: 1280, height: 800 },
       args,
-      ignoreDefaultArgs: ["--enable-automation"], // 🔥 Hides "Chrome is being controlled by automated test software" bar & flags
+      ignoreDefaultArgs: ["--enable-automation"],
     });
 
     const pages = await browser.pages();
@@ -129,31 +145,9 @@ export async function launchNewSession(sessionId: string, targetUrl: string, pro
       await context.overridePermissions(targetUrl, ['geolocation']).catch(() => {});
     }
 
-    // 🔥 Advanced Stealth Injections to completely bypass Cloudflare/Akamai bot checks
     await page.evaluateOnNewDocument(() => {
-      // Pass webdriver check
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-
-      // Pass chrome check
       (window as any).chrome = { runtime: {} };
-
-      // Pass permissions check
-      const originalQuery = window.navigator.permissions.query;
-      window.navigator.permissions.query = (parameters: any) => (
-        parameters.name === 'notifications' ?
-          Promise.resolve({ state: 'denied' } as PermissionStatus) :
-          originalQuery(parameters)
-      );
-
-      // Pass plugins length check
-      Object.defineProperty(navigator, 'plugins', {
-        get: () => [1, 2, 3, 4, 5],
-      });
-
-      // Pass languages check
-      Object.defineProperty(navigator, 'languages', {
-        get: () => ['en-US', 'en'],
-      });
     }).catch(() => {});
 
     if (proxyUsername && proxyPassword) {
@@ -162,8 +156,6 @@ export async function launchNewSession(sessionId: string, targetUrl: string, pro
 
     await page.emulateTimezone(timezone).catch(() => {});
     await page.setGeolocation({ latitude: lat, longitude: lon, accuracy: 100 }).catch(() => {});
-
-    // Set realistic User-Agent to prevent block
     await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
 
     await page.bringToFront().catch(() => {});
@@ -171,7 +163,6 @@ export async function launchNewSession(sessionId: string, targetUrl: string, pro
       await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 25000 }).catch(() => {});
     }
 
-    // Save session in global map
     global.activeSessionsMap.set(sessionId, {
       id: sessionId,
       browser,
@@ -291,21 +282,37 @@ export async function handleBrowserMove(x: number, y: number, sessionId?: string
   return false;
 }
 
-export async function handleBrowserSpecialKey(keyName: "Backspace" | "Enter" | "Delete", sessionId?: string) {
-  const targetId = sessionId || global.selectedActiveSessionId;
+export async function handleBrowserSpecialKey(sessionIdOrKey: string, keyName?: string) {
+  // Support both (sessionId, key) and (key) parameter orders safely
+  let targetId = global.selectedActiveSessionId;
+  let key = sessionIdOrKey;
+
+  if (keyName && global.activeSessionsMap.has(sessionIdOrKey)) {
+    targetId = sessionIdOrKey;
+    key = keyName;
+  }
+
   if (!targetId || !global.activeSessionsMap.has(targetId)) return false;
   try {
     const session = global.activeSessionsMap.get(targetId)!;
     if (session.page && !session.page.isClosed()) {
-      await session.page.keyboard.press(keyName);
+      await session.page.keyboard.press(key as any);
       return true;
     }
   } catch (err) {}
   return false;
 }
 
-export async function handleBrowserType(text: string, sessionId?: string) {
-  const targetId = sessionId || global.selectedActiveSessionId;
+export async function handleBrowserType(sessionIdOrText: string, textParam?: string) {
+  // Support both (sessionId, text) and (text) parameter orders safely
+  let targetId = global.selectedActiveSessionId;
+  let text = sessionIdOrText;
+
+  if (textParam && global.activeSessionsMap.has(sessionIdOrText)) {
+    targetId = sessionIdOrText;
+    text = textParam;
+  }
+
   if (!targetId || !global.activeSessionsMap.has(targetId)) return false;
   try {
     const session = global.activeSessionsMap.get(targetId)!;
@@ -321,7 +328,9 @@ export async function terminateBrowserSession(sessionId: string) {
   if (global.activeSessionsMap.has(sessionId)) {
     const session = global.activeSessionsMap.get(sessionId)!;
     try {
-      await session.browser.close();
+      if (session.browser) {
+        await session.browser.close();
+      }
     } catch (e) {}
     global.activeSessionsMap.delete(sessionId);
     if (global.selectedActiveSessionId === sessionId) {
@@ -333,8 +342,21 @@ export async function terminateBrowserSession(sessionId: string) {
   return false;
 }
 
+// 🔥 Termination Aliases for API compatibility
+export async function terminateSession(sessionId: string) {
+  return await terminateBrowserSession(sessionId);
+}
 
-// 🔥 Proper Exports for Proxy and Geo Routes
+export async function terminateAllSessions() {
+  const sessionIds = Array.from(global.activeSessionsMap.keys());
+  for (const id of sessionIds) {
+    await terminateBrowserSession(id);
+  }
+  global.activeSessionsMap.clear();
+  global.selectedActiveSessionId = null;
+  return true;
+}
+
 export async function launchLiveBrowser(targetUrl: string, proxyString?: string) {
   return await launchProxyBrowser(targetUrl, proxyString);
 }

@@ -5,12 +5,19 @@ import { useSearchParams } from "next/navigation";
 
 function ClientViewContent() {
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get("sessionId") || "";
+  const urlSessionId = searchParams.get("sessionId") || "";
+  const [sessionId, setSessionId] = useState(urlSessionId);
   const [frame, setFrame] = useState<string | null>(null);
   const [isTerminated, setIsTerminated] = useState(false);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Ultra-fast Redirect / Session Termination Polling (300ms)
+  useEffect(() => {
+    if (urlSessionId) {
+      setSessionId(urlSessionId);
+    }
+  }, [urlSessionId]);
+
+  // 1. Redirect / Termination Polling
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -29,7 +36,7 @@ function ClientViewContent() {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. High-speed Frame Streaming with Session ID Persistence (350ms)
+  // 2. High-speed Frame Streaming
   useEffect(() => {
     if (isTerminated || !sessionId) return;
     let isMounted = true;
@@ -55,11 +62,20 @@ function ClientViewContent() {
     };
   }, [sessionId, isTerminated]);
 
-  // 3. Unified Interaction Handler (Desktop Click & Mobile Touch Support)
+  // 3. Auto-focus hidden input continuously
+  useEffect(() => {
+    const focusTimer = setInterval(() => {
+      if (hiddenInputRef.current) {
+        hiddenInputRef.current.focus();
+      }
+    }, 500);
+    return () => clearInterval(focusTimer);
+  }, []);
+
+  // 4. Unified Interaction Handler
   const handleInteraction = async (clientX: number, clientY: number, target: HTMLElement) => {
-    if (isTerminated) return;
+    if (isTerminated || !sessionId) return;
     
-    // Focus hidden input on mobile to open/keep virtual keyboard ready
     if (hiddenInputRef.current) {
       hiddenInputRef.current.focus();
     }
@@ -75,37 +91,15 @@ function ClientViewContent() {
       await fetch("/api/admin/click", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ x, y, sessionId }),
+        body: JSON.stringify({ x, y, button: "left", sessionId }),
       });
     } catch (err) {}
   };
 
-  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    handleInteraction(e.clientX, e.clientY, e.currentTarget);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.changedTouches && e.changedTouches.length > 0) {
-      const touch = e.changedTouches[0];
-      handleInteraction(touch.clientX, touch.clientY, e.currentTarget);
-    }
-  };
-
-  // 4. Smooth Wheel / Scroll Handler
-  const handleWheel = async (e: React.WheelEvent<HTMLDivElement>) => {
-    if (isTerminated) return;
-    try {
-      await fetch("/api/admin/scroll", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deltaY: e.deltaY, sessionId }),
-      });
-    } catch (err) {}
-  };
-
-  // 5. Fast Keyboard Typing Handler
-  const handleKeyDown = async (e: React.KeyboardEvent<HTMLDivElement> | React.KeyboardEvent<HTMLInputElement>) => {
-    if (isTerminated) return;
+  // 5. Keyboard Typing Handler
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement> | React.KeyboardEvent<HTMLDivElement>) => {
+    if (isTerminated || !sessionId) return;
+    
     try {
       if (e.key === "Backspace" || e.key === "Enter" || e.key === "Delete" || e.key === "Tab") {
         await fetch("/api/admin/type", {
@@ -137,20 +131,22 @@ function ClientViewContent() {
 
   return (
     <div 
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      onClick={handleContainerClick}
-      onTouchEnd={handleTouchEnd}
-      onWheel={handleWheel}
-      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden focus:outline-none"
+      onClick={(e) => handleInteraction(e.clientX, e.clientY, e.currentTarget)}
+      onTouchEnd={(e) => {
+        if (e.changedTouches?.[0]) {
+          handleInteraction(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.currentTarget);
+        }
+      }}
+      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden"
     >
-      {/* Hidden input to trigger mobile virtual keyboard */}
+      {/* Hidden input to capture keystrokes reliably */}
       <input 
         ref={hiddenInputRef}
         type="text" 
         onKeyDown={handleKeyDown}
-        className="absolute opacity-0 pointer-events-none w-0 h-0"
-        aria-hidden="true"
+        className="absolute opacity-1 w-1 h-1 bg-transparent border-none outline-none"
+        style={{ left: "-9999px" }}
+        autoFocus
       />
 
       {frame ? (
@@ -162,9 +158,7 @@ function ClientViewContent() {
       ) : (
         <div className="flex flex-col items-center gap-3 text-zinc-500">
           <div className="w-8 h-8 border-2 border-zinc-600 border-t-emerald-500 rounded-full animate-spin"></div>
-          <p className="text-xs font-medium">
-            {!sessionId ? "Error: Missing Session ID in URL!" : "Connecting to remote screen..."}
-          </p>
+          <p className="text-xs font-medium">Connecting to session...</p>
         </div>
       )}
     </div>
@@ -173,7 +167,7 @@ function ClientViewContent() {
 
 export default function ClientViewPage() {
   return (
-    <Suspense fallback={<div className="fixed inset-0 bg-black text-white flex items-center justify-center text-xs">Loading client session...</div>}>
+    <Suspense fallback={<div className="fixed inset-0 bg-black text-white flex items-center justify-center text-xs">Loading...</div>}>
       <ClientViewContent />
     </Suspense>
   );

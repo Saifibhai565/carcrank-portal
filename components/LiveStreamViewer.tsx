@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 
 export default function LiveStreamViewer({ activeSessionId }: { activeSessionId: string | null }) {
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(activeSessionId);
   const [frame, setFrame] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [fps, setFps] = useState(5); // Default fast speed (5 FPS)
@@ -10,6 +11,19 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [sessionTime, setSessionTime] = useState(0);
   const viewerRef = useRef<HTMLDivElement>(null);
+
+  // Session ID ko localStorage mein save aur load karna taaki tab switch hone par gayab na ho
+  useEffect(() => {
+    if (activeSessionId) {
+      setCurrentSessionId(activeSessionId);
+      localStorage.setItem("rbi_active_session_id", activeSessionId);
+    } else {
+      const savedSessionId = localStorage.getItem("rbi_active_session_id");
+      if (savedSessionId) {
+        setCurrentSessionId(savedSessionId);
+      }
+    }
+  }, [activeSessionId]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -30,7 +44,7 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
   useEffect(() => {
     let isMounted = true;
     
-    if (!activeSessionId) {
+    if (!currentSessionId) {
       setFrame(null);
       setIsConnected(false);
       return;
@@ -40,7 +54,7 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
 
     const fetchFrame = async () => {
       try {
-        const query = `?sessionId=${activeSessionId}&quality=${quality}`;
+        const query = `?sessionId=${currentSessionId}&quality=${quality}`;
         const res = await fetch(`/api/admin/stream${query}`);
         const data = await res.json();
         if (data.success && data.frame && isMounted) {
@@ -61,11 +75,11 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
       isMounted = false;
       clearInterval(interval);
     };
-  }, [fps, quality, activeSessionId]);
+  }, [fps, quality, currentSessionId]);
 
   // Unified Interaction Handler for Mouse & Touch on Admin Stream Viewer
   const handleInteraction = async (clientX: number, clientY: number, target: HTMLElement, button: string = "left") => {
-    if (!activeSessionId) return;
+    if (!currentSessionId) return;
     const rect = target.getBoundingClientRect();
     const scaleX = 1280 / rect.width;
     const scaleY = 800 / rect.height;
@@ -76,7 +90,7 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
     fetch("/api/admin/click", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ x, y, button, sessionId: activeSessionId }),
+      body: JSON.stringify({ x, y, button, sessionId: currentSessionId }),
     }).catch(() => {});
   };
 
@@ -97,16 +111,16 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
   };
 
   const handleWheel = async (e: React.WheelEvent<HTMLDivElement>) => {
-    if (!activeSessionId) return;
+    if (!currentSessionId) return;
     fetch("/api/admin/scroll", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deltaY: e.deltaY, sessionId: activeSessionId }),
+      body: JSON.stringify({ deltaY: e.deltaY, sessionId: currentSessionId }),
     }).catch(() => {});
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!activeSessionId) return;
+    if (!currentSessionId) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const scaleX = 1280 / rect.width;
     const scaleY = 800 / rect.height;
@@ -117,23 +131,23 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
     fetch("/api/admin/mousemove", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ x, y, sessionId: activeSessionId }),
+      body: JSON.stringify({ x, y, sessionId: currentSessionId }),
     }).catch(() => {});
   };
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!activeSessionId) return;
+    if (!currentSessionId) return;
     if (e.key === "Backspace" || e.key === "Enter" || e.key === "Delete" || e.key === "Tab") {
       fetch("/api/admin/type", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: e.key, sessionId: activeSessionId }),
+        body: JSON.stringify({ key: e.key, sessionId: currentSessionId }),
       }).catch(() => {});
     } else if (e.key.length === 1) {
       fetch("/api/admin/type", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: e.key, sessionId: activeSessionId }),
+        body: JSON.stringify({ text: e.key, sessionId: currentSessionId }),
       }).catch(() => {});
     }
   };
@@ -160,7 +174,7 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
         <div className="flex items-center gap-2">
           <span className={`w-3 h-3 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`}></span>
           <span className="font-bold text-zinc-200">RBI Stream Node:</span>
-          <span className="text-zinc-400 font-mono">{activeSessionId ? `Session ID: ${activeSessionId}` : "No Session Selected"}</span>
+          <span className="text-zinc-400 font-mono">{currentSessionId ? `Session ID: ${currentSessionId}` : "No Session Selected"}</span>
           {isConnected && (
             <span className="ml-2 bg-zinc-950 text-emerald-400 font-mono px-2 py-0.5 rounded border border-zinc-800 text-[10px]">
               ⏱ {formatTime(sessionTime)}
@@ -229,7 +243,7 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
           <div className="flex flex-col items-center gap-3 text-zinc-500">
             <div className="w-8 h-8 border-2 border-zinc-600 border-t-emerald-500 rounded-full animate-spin"></div>
             <p className="text-xs font-medium">
-              {activeSessionId ? "Initializing secure headless stream & binding proxy..." : "Please select or launch a session to view live stream..."}
+              {currentSessionId ? "Initializing secure headless stream & binding proxy..." : "Please select or launch a session to view live stream..."}
             </p>
           </div>
         )}

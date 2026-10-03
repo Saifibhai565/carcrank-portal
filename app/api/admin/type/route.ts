@@ -3,14 +3,12 @@ import { handleBrowserType, handleBrowserSpecialKey } from "@/lib/browserWorker"
 
 export async function POST(req: Request) {
   try {
-    const { text, key } = await req.json();
+    const { text, key, sessionId } = await req.json();
 
-    if (key === "Backspace") {
-      await handleBrowserSpecialKey("Backspace");
-    } else if (key === "Enter") {
-      await handleBrowserSpecialKey("Enter");
+    if (key === "Backspace" || key === "Enter" || key === "Delete" || key === "Tab") {
+      await handleBrowserSpecialKey(sessionId, key);
     } else if (text) {
-      await handleBrowserType(text);
+      await handleBrowserType(sessionId, text);
     }
 
     return NextResponse.json({ success: true });

