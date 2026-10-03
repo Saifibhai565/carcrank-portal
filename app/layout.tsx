@@ -1,13 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-inter",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Verify your trading activity | YouLend",
@@ -22,15 +14,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable}`}
       style={
         {
-          "--font-display": "var(--font-inter)",
-          "--font-body": "var(--font-inter)",
+          "--font-display": "sans-serif",
+          "--font-body": "sans-serif",
         } as React.CSSProperties
       }
     >
-      <body className={`${inter.className} antialiased bg-white text-navy selection:bg-brand selection:text-white`}>
+      <body className="font-sans antialiased bg-white text-navy selection:bg-brand selection:text-white">
         {children}
       </body>
     </html>
