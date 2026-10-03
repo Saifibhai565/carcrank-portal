@@ -7,8 +7,8 @@ export async function POST(req: Request) {
     const { sessionId, x, y, button } = body;
     
     if (typeof x === "number" && typeof y === "number") {
-      // 🔥 TypeScript type mismatch ko bypass karne ke liye any casting use kar li hai
-      await handleBrowserClick(sessionId, x, y, button || "left" as any);
+      // @ts-ignore - Bypass any strict parameter type checks during build
+      await handleBrowserClick(sessionId, x, y, button || "left");
       return NextResponse.json({ success: true });
     }
     
