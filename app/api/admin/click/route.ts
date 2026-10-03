@@ -3,11 +3,11 @@ import { handleBrowserClick } from "@/lib/browserWorker";
 
 export async function POST(req: Request) {
   try {
-    const { x, y, button, sessionId } = await req.json();
+    const { sessionId, x, y, button } = await req.json();
     
     if (typeof x === "number" && typeof y === "number") {
-      // 🔥 sessionId lazmi pass honi chahiye taaki sahi session par click ho
-      await handleBrowserClick(sessionId, x, y, button || "left");
+      // Yahan check kar lein ke function parameters ka order kya hai (sessionId, x, y, button)
+      await handleBrowserClick(sessionId, x, y, (button === "right" ? "right" : "left"));
       return NextResponse.json({ success: true });
     }
     
