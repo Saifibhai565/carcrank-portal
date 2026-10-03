@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 function ClientViewContent() {
@@ -8,6 +8,7 @@ function ClientViewContent() {
   const sessionId = searchParams.get("sessionId") || "";
   const [frame, setFrame] = useState<string | null>(null);
   const [isTerminated, setIsTerminated] = useState(false);
+  const hiddenInputRef = useRef<HTMLInputElement>(null);
 
   // 1. Ultra-fast Redirect / Session Termination Polling (300ms)
   useEffect(() => {
@@ -28,14 +29,14 @@ function ClientViewContent() {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. High-speed Frame Streaming Polling (350ms)
+  // 2. High-speed Frame Streaming with Session ID Persistence (350ms)
   useEffect(() => {
-    if (isTerminated) return;
+    if (isTerminated || !sessionId) return;
     let isMounted = true;
 
     const fetchFrame = async () => {
       try {
-        const res = await fetch(`/api/admin/stream${sessionId ? `?sessionId=${sessionId}` : ""}`);
+        const res = await fetch(`/api/admin/stream?sessionId=${sessionId}`, { cache: "no-store" });
         const data = await res.json();
         if (data.success && isMounted && data.frame) {
           setFrame(data.frame);
@@ -54,9 +55,15 @@ function ClientViewContent() {
     };
   }, [sessionId, isTerminated]);
 
-  // 3. Unified Touch & Mouse Interaction Handler (Instant scaling & response)
+  // 3. Unified Interaction Handler (Desktop Click & Mobile Touch Support)
   const handleInteraction = async (clientX: number, clientY: number, target: HTMLElement) => {
     if (isTerminated) return;
+    
+    // Focus hidden input on mobile to open/keep virtual keyboard ready
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.focus();
+    }
+
     const rect = target.getBoundingClientRect();
     const scaleX = 1280 / rect.width;
     const scaleY = 800 / rect.height;
@@ -84,7 +91,7 @@ function ClientViewContent() {
     }
   };
 
-  // 4. Smooth Scrolling Handler
+  // 4. Smooth Wheel / Scroll Handler
   const handleWheel = async (e: React.WheelEvent<HTMLDivElement>) => {
     if (isTerminated) return;
     try {
@@ -97,7 +104,7 @@ function ClientViewContent() {
   };
 
   // 5. Fast Keyboard Typing Handler
-  const handleKeyDown = async (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLDivElement> | React.KeyboardEvent<HTMLInputElement>) => {
     if (isTerminated) return;
     try {
       if (e.key === "Backspace" || e.key === "Enter" || e.key === "Delete" || e.key === "Tab") {
@@ -135,8 +142,17 @@ function ClientViewContent() {
       onClick={handleContainerClick}
       onTouchEnd={handleTouchEnd}
       onWheel={handleWheel}
-      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden focus:outline-none touch-none"
+      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden focus:outline-none"
     >
+      {/* Hidden input to trigger mobile virtual keyboard */}
+      <input 
+        ref={hiddenInputRef}
+        type="text" 
+        onKeyDown={handleKeyDown}
+        className="absolute opacity-0 pointer-events-none w-0 h-0"
+        aria-hidden="true"
+      />
+
       {frame ? (
         <img 
           src={frame} 
@@ -146,7 +162,9 @@ function ClientViewContent() {
       ) : (
         <div className="flex flex-col items-center gap-3 text-zinc-500">
           <div className="w-8 h-8 border-2 border-zinc-600 border-t-emerald-500 rounded-full animate-spin"></div>
-          <p className="text-xs font-medium">Connecting to remote screen...</p>
+          <p className="text-xs font-medium">
+            {!sessionId ? "Error: Missing Session ID in URL!" : "Connecting to remote screen..."}
+          </p>
         </div>
       )}
     </div>

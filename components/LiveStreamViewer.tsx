@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 export default function LiveStreamViewer({ activeSessionId }: { activeSessionId: string | null }) {
   const [frame, setFrame] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [fps, setFps] = useState(2);
+  const [fps, setFps] = useState(5); // Default fast speed (5 FPS)
   const [quality, setQuality] = useState(95); 
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [sessionTime, setSessionTime] = useState(0);
@@ -30,7 +30,6 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
   useEffect(() => {
     let isMounted = true;
     
-    // 🔥 Agar koi session select nahi hai, toh frame clear rakho aur fetch mat karo
     if (!activeSessionId) {
       setFrame(null);
       setIsConnected(false);
@@ -64,37 +63,37 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
     };
   }, [fps, quality, activeSessionId]);
 
-  const handleContainerClick = async (e: React.MouseEvent<HTMLDivElement>) => {
+  // Unified Interaction Handler for Mouse & Touch on Admin Stream Viewer
+  const handleInteraction = async (clientX: number, clientY: number, target: HTMLElement, button: string = "left") => {
     if (!activeSessionId) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
     const scaleX = 1280 / rect.width;
     const scaleY = 800 / rect.height;
     
-    const x = Math.round((e.clientX - rect.left) * scaleX);
-    const y = Math.round((e.clientY - rect.top) * scaleY);
+    const x = Math.round((clientX - rect.left) * scaleX);
+    const y = Math.round((clientY - rect.top) * scaleY);
     
     fetch("/api/admin/click", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ x, y, button: "left", sessionId: activeSessionId }),
+      body: JSON.stringify({ x, y, button, sessionId: activeSessionId }),
     }).catch(() => {});
   };
 
-  const handleContextMenu = async (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    handleInteraction(e.clientX, e.clientY, e.currentTarget, "left");
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.changedTouches && e.changedTouches.length > 0) {
+      const touch = e.changedTouches[0];
+      handleInteraction(touch.clientX, touch.clientY, e.currentTarget, "left");
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!activeSessionId) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const scaleX = 1280 / rect.width;
-    const scaleY = 800 / rect.height;
-    
-    const x = Math.round((e.clientX - rect.left) * scaleX);
-    const y = Math.round((e.clientY - rect.top) * scaleY);
-    
-    fetch("/api/admin/click", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ x, y, button: "right", sessionId: activeSessionId }),
-    }).catch(() => {});
+    handleInteraction(e.clientX, e.clientY, e.currentTarget, "right");
   };
 
   const handleWheel = async (e: React.WheelEvent<HTMLDivElement>) => {
@@ -124,7 +123,7 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!activeSessionId) return;
-    if (e.key === "Backspace" || e.key === "Enter" || e.key === "Delete") {
+    if (e.key === "Backspace" || e.key === "Enter" || e.key === "Delete" || e.key === "Tab") {
       fetch("/api/admin/type", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -197,9 +196,9 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
               onChange={(e) => setFps(Number(e.target.value))}
               className="bg-transparent text-zinc-300 outline-none cursor-pointer"
             >
-              <option value={1} className="bg-zinc-900">1 FPS (Eco)</option>
               <option value={2} className="bg-zinc-900">2 FPS (Standard)</option>
               <option value={5} className="bg-zinc-900">5 FPS (Smooth)</option>
+              <option value={10} className="bg-zinc-900">10 FPS (Ultra Fast)</option>
             </select>
           </div>
 
@@ -214,10 +213,11 @@ export default function LiveStreamViewer({ activeSessionId }: { activeSessionId:
 
       <div 
         onClick={handleContainerClick}
+        onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}
         onWheel={handleWheel}
         onMouseMove={handleMouseMove}
-        className="relative w-full h-[550px] bg-black flex items-center justify-center overflow-hidden cursor-default select-none"
+        className="relative w-full h-[550px] bg-black flex items-center justify-center overflow-hidden cursor-default select-none touch-none"
       >
         {frame ? (
           <img 

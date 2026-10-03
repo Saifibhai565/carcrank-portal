@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { captureBrowserFrame, isSessionActive, getPendingRedirect, getSelectedSession } from "@/lib/browserWorker";
+import { captureBrowserFrame, isSessionActive, getPendingRedirect } from "@/lib/browserWorker";
 
 export const dynamic = "force-dynamic";
 
@@ -8,8 +8,8 @@ export async function GET(req: Request) {
     const urlObj = new URL(req.url);
     const sessionId = urlObj.searchParams.get("sessionId") || undefined;
 
-    if (!isSessionActive(sessionId)) {
-      return NextResponse.json({ success: false, error: "Session not active" });
+    if (!sessionId || !isSessionActive(sessionId)) {
+      return NextResponse.json({ success: false, error: "Session not active or missing" });
     }
 
     const frame = await captureBrowserFrame(sessionId);
