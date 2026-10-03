@@ -219,12 +219,6 @@ export default function ProxyAndStreamManager() {
           <p className="text-xs text-zinc-400">Manage proxy nodes with real-time location tracking and isolated browser streams.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => handleOpenClientTab(activeSessionId || undefined)}
-            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow border border-zinc-700 cursor-pointer flex items-center gap-1.5"
-          >
-            <span>🔗 Open Client Tab</span>
-          </button>
           <div className="flex items-center gap-2 bg-emerald-950/50 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs text-emerald-400 font-bold">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
             System Online
@@ -498,14 +492,16 @@ export default function ProxyAndStreamManager() {
                         </button>
                       </td>
 
+                      {/* 🔥 Dedicated Open Client Button in Table Row */}
                       <td className="p-3">
                         <button 
                           onClick={() => handleOpenClientTab(sess.id)}
-                          className="bg-zinc-800 hover:bg-zinc-700 text-blue-400 px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer"
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-[10px] font-bold transition shadow cursor-pointer flex items-center gap-1 whitespace-nowrap"
                         >
-                          /client (Open)
+                          <span>🔗 Open Client</span>
                         </button>
                       </td>
+
                       <td className="p-3 text-right space-x-2">
                         <button 
                           onClick={() => handleEndSession(sess.id)}
