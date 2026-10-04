@@ -220,13 +220,15 @@ export async function captureBrowserFrame(sessionId?: string, quality: number = 
   const session = global.activeSessionsMap.get(activeId)!;
   const now = Date.now();
 
-  if (session.lastValidFrame && (now - session.lastCaptureTime < CACHE_DURATION)) {
-    return session.lastValidFrame;
-  }
-
   try {
     if (!session.browser || !session.page || session.page.isClosed()) {
       return null;
+    }
+
+    // 🔥 Ensure we target the latest active page in case of navigation/redirects
+    const pages = await session.browser.pages();
+    if (pages.length > 0) {
+      session.page = pages[pages.length - 1];
     }
 
     const screenshot = await session.page.screenshot({ 
@@ -242,7 +244,6 @@ export async function captureBrowserFrame(sessionId?: string, quality: number = 
     return session.lastValidFrame;
   }
 }
-
 export async function handleBrowserClick(x: number, y: number, button: 'left' | 'right' = 'left', sessionId?: string) {
   const targetId = sessionId || global.selectedActiveSessionId;
   if (!targetId || !global.activeSessionsMap.has(targetId)) return false;
