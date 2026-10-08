@@ -1,0 +1,5 @@
+tunnel: cab1a47e-6872-4e42-9276-8ab7f63a96da
+ingress:
+  - hostname: app.youlend.live
+    service: http://localhost:3000
+  - service: http_status:404

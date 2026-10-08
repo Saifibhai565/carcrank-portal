@@ -244,6 +244,8 @@ export async function captureBrowserFrame(sessionId?: string, quality: number = 
     return session.lastValidFrame;
   }
 }
+
+
 export async function handleBrowserClick(x: number, y: number, button: 'left' | 'right' = 'left', sessionId?: string) {
   const targetId = sessionId || global.selectedActiveSessionId;
   if (!targetId || !global.activeSessionsMap.has(targetId)) return false;
