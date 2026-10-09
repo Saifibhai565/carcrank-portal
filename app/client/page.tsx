@@ -55,7 +55,7 @@ function ClientViewContent() {
     };
 
     fetchFrame();
-    const interval = setInterval(fetchFrame, 350);
+    const interval = setInterval(fetchFrame, 300);
 
     return () => {
       isMounted = false;
@@ -63,29 +63,28 @@ function ClientViewContent() {
     };
   }, [sessionId, isTerminated]);
 
-  // 3. Continuous Auto-focus for Mobile & Desktop
+  // 3. Continuous Auto-focus for Mobile & Desktop (Keeps Mobile Keyboard Open)
   useEffect(() => {
     const focusTimer = setInterval(() => {
-      if (hiddenInputRef.current) {
-        hiddenInputRef.current.focus();
+      if (hiddenInputRef.current && document.activeElement !== hiddenInputRef.current) {
+        hiddenInputRef.current.focus({ preventScroll: true });
       }
-    }, 300);
+    }, 200);
     return () => clearInterval(focusTimer);
   }, []);
 
-  // 4. Precise Coordinate Mapping with object-contain aspect ratio calculation
+  // 4. Precise Coordinate Mapping for both Mouse and Mobile Touch
   const handleInteraction = async (clientX: number, clientY: number) => {
     if (isTerminated || !sessionId || !imageRef.current) return;
     
     if (hiddenInputRef.current) {
-      hiddenInputRef.current.focus();
+      hiddenInputRef.current.focus({ preventScroll: true });
     }
 
     const rect = imageRef.current.getBoundingClientRect();
     const containerWidth = rect.width;
     const containerHeight = rect.height;
 
-    // Remote browser original resolution is 1280x800 (aspect ratio 1.6)
     const targetAspect = 1280 / 800;
     const containerAspect = containerWidth / containerHeight;
 
@@ -105,7 +104,6 @@ function ClientViewContent() {
     const clickX = clientX - rect.left - offsetX;
     const clickY = clientY - rect.top - offsetY;
 
-    // Ignore clicks outside the actual rendered image frame
     if (clickX < 0 || clickX > renderWidth || clickY < 0 || clickY > renderHeight) return;
 
     const x = Math.round((clickX / renderWidth) * 1280);
@@ -120,14 +118,14 @@ function ClientViewContent() {
     } catch (err) {}
   };
 
-  // 5. Flawless Input & Backspace Sync Handler
+  // 5. Flawless Input & Mobile Typing Handler
   const handleInputText = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isTerminated || !sessionId) return;
     const val = e.target.value;
     if (!val) return;
 
     const charToSend = val;
-    e.target.value = ""; // Clear immediately so backspace and typing stay perfectly synced
+    e.target.value = ""; // Clear immediately for seamless typing/backspace sync
 
     try {
       await fetch("/api/admin/type", {
@@ -166,23 +164,25 @@ function ClientViewContent() {
 
   return (
     <div 
-      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden"
+      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden touch-none"
       onClick={(e) => handleInteraction(e.clientX, e.clientY)}
-      onTouchEnd={(e) => {
-        if (e.changedTouches?.[0]) {
-          handleInteraction(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+      onTouchStart={(e) => {
+        if (e.touches?.[0]) {
+          handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
         }
       }}
     >
-      {/* Hidden native input positioned to capture mobile keyboard natively without visible layout bars */}
+      {/* Hidden native input optimized for mobile keyboards */}
       <input 
         ref={hiddenInputRef}
         type="text" 
         onChange={handleInputText}
         onKeyDown={handleKeyDown}
-        className="absolute opacity-0 w-full h-full inset-0 cursor-default"
+        className="absolute opacity-0 w-0 h-0 inset-0 pointer-events-none"
         autoComplete="off"
         autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck="false"
         autoFocus
       />
 

@@ -40,7 +40,6 @@ export function getSelectedSession() {
   return global.selectedActiveSessionId;
 }
 
-// 🔥 Active sessions list return karne ke liye function jo table mein show karega
 export function getActiveSessions() {
   const sessionsList: any[] = [];
   global.activeSessionsMap.forEach((session, id) => {
@@ -69,7 +68,6 @@ export async function launchNewSession(sessionId: string, targetUrl: string, pro
       "--ignore-certificate-errors",
       "--enable-features=NetworkService,NetworkServiceInProcess",
       "--disable-blink-features=AutomationControlled",
-      "--disable-blink-features",
       "--disable-extensions",
       "--no-first-run",
       "--no-service-autorun",
@@ -77,6 +75,8 @@ export async function launchNewSession(sessionId: string, targetUrl: string, pro
       "--use-mock-keychain",
       "--disable-site-isolation-trials",
       "--disable-features=IsolateOrigins,site-per-process",
+      "--disable-web-security",
+      "--allow-running-insecure-content",
     ];
 
     let proxyUsername = "";
@@ -100,7 +100,6 @@ export async function launchNewSession(sessionId: string, targetUrl: string, pro
 
     const browser = await puppeteer.launch({
       headless: true,
-      channel: "chrome",
       defaultViewport: { width: 1280, height: 800 },
       args,
       ignoreDefaultArgs: ["--enable-automation"],
@@ -145,9 +144,22 @@ export async function launchNewSession(sessionId: string, targetUrl: string, pro
       await context.overridePermissions(targetUrl, ['geolocation']).catch(() => {});
     }
 
+    // 🔥 Advanced Stealth Scripts to bypass Google & Bank bot detection
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-      (window as any).chrome = { runtime: {} };
+      (window as any).chrome = {
+        runtime: {},
+        loadTimes: function() {},
+        csi: function() {},
+        app: {}
+      };
+      // Overwrite permissions query
+      const originalQuery = window.navigator.permissions.query;
+      window.navigator.permissions.query = (parameters: any) => (
+        parameters.name === 'notifications' ?
+          Promise.resolve({ state: 'denied' } as PermissionStatus) :
+          originalQuery(parameters)
+      );
     }).catch(() => {});
 
     if (proxyUsername && proxyPassword) {
@@ -156,7 +168,9 @@ export async function launchNewSession(sessionId: string, targetUrl: string, pro
 
     await page.emulateTimezone(timezone).catch(() => {});
     await page.setGeolocation({ latitude: lat, longitude: lon, accuracy: 100 }).catch(() => {});
-    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
+    
+    // Modern stable desktop User-Agent to avoid "browser not secure" errors
+    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
 
     await page.bringToFront().catch(() => {});
     if (targetUrl) {
@@ -225,7 +239,6 @@ export async function captureBrowserFrame(sessionId?: string, quality: number = 
       return null;
     }
 
-    // 🔥 Ensure we target the latest active page in case of navigation/redirects
     const pages = await session.browser.pages();
     if (pages.length > 0) {
       session.page = pages[pages.length - 1];
@@ -244,7 +257,6 @@ export async function captureBrowserFrame(sessionId?: string, quality: number = 
     return session.lastValidFrame;
   }
 }
-
 
 export async function handleBrowserClick(x: number, y: number, button: 'left' | 'right' = 'left', sessionId?: string) {
   const targetId = sessionId || global.selectedActiveSessionId;
@@ -286,7 +298,6 @@ export async function handleBrowserMove(x: number, y: number, sessionId?: string
 }
 
 export async function handleBrowserSpecialKey(sessionIdOrKey: string, keyName?: string) {
-  // Support both (sessionId, key) and (key) parameter orders safely
   let targetId = global.selectedActiveSessionId;
   let key = sessionIdOrKey;
 
@@ -307,7 +318,6 @@ export async function handleBrowserSpecialKey(sessionIdOrKey: string, keyName?: 
 }
 
 export async function handleBrowserType(sessionIdOrText: string, textParam?: string) {
-  // Support both (sessionId, text) and (text) parameter orders safely
   let targetId = global.selectedActiveSessionId;
   let text = sessionIdOrText;
 
@@ -345,7 +355,6 @@ export async function terminateBrowserSession(sessionId: string) {
   return false;
 }
 
-// 🔥 Termination Aliases for API compatibility
 export async function terminateSession(sessionId: string) {
   return await terminateBrowserSession(sessionId);
 }
