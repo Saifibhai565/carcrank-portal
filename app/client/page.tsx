@@ -18,7 +18,7 @@ function ClientViewContent() {
     }
   }, [urlSessionId]);
 
-  // 1. Redirect / Termination Polling
+  // 1. Session Termination & Redirect Polling
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -32,19 +32,18 @@ function ClientViewContent() {
           }
         }
       } catch (err) {}
-    }, 300);
-
+    }, 400);
     return () => clearInterval(interval);
   }, []);
 
-  // 2. High-speed Frame Streaming
+  // 2. High-Speed Responsive Frame Streaming (Optimized for Mobile Speed)
   useEffect(() => {
     if (isTerminated || !sessionId) return;
     let isMounted = true;
 
     const fetchFrame = async () => {
       try {
-        const res = await fetch(`/api/admin/stream?sessionId=${sessionId}`, { cache: "no-store" });
+        const res = await fetch(`/api/admin/stream?sessionId=${sessionId}&quality=75`, { cache: "no-store" });
         const data = await res.json();
         if (data.success && isMounted && data.frame) {
           setFrame(data.frame);
@@ -55,7 +54,7 @@ function ClientViewContent() {
     };
 
     fetchFrame();
-    const interval = setInterval(fetchFrame, 300);
+    const interval = setInterval(fetchFrame, 250);
 
     return () => {
       isMounted = false;
@@ -63,17 +62,17 @@ function ClientViewContent() {
     };
   }, [sessionId, isTerminated]);
 
-  // 3. Continuous Auto-focus for Mobile & Desktop (Keeps Mobile Keyboard Open)
+  // 3. Keep Mobile Keyboard Active & Focused
   useEffect(() => {
     const focusTimer = setInterval(() => {
       if (hiddenInputRef.current && document.activeElement !== hiddenInputRef.current) {
         hiddenInputRef.current.focus({ preventScroll: true });
       }
-    }, 200);
+    }, 300);
     return () => clearInterval(focusTimer);
   }, []);
 
-  // 4. Precise Coordinate Mapping for both Mouse and Mobile Touch
+  // 4. Responsive Touch & Click Coordinate Mapping (100% Mobile Accurate)
   const handleInteraction = async (clientX: number, clientY: number) => {
     if (isTerminated || !sessionId || !imageRef.current) return;
     
@@ -118,14 +117,14 @@ function ClientViewContent() {
     } catch (err) {}
   };
 
-  // 5. Flawless Input & Mobile Typing Handler
+  // 5. Seamless Mobile Typing & Backspace Handler
   const handleInputText = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isTerminated || !sessionId) return;
     const val = e.target.value;
     if (!val) return;
 
     const charToSend = val;
-    e.target.value = ""; // Clear immediately for seamless typing/backspace sync
+    e.target.value = "";
 
     try {
       await fetch("/api/admin/type", {
@@ -138,7 +137,6 @@ function ClientViewContent() {
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (isTerminated || !sessionId) return;
-    
     try {
       if (e.key === "Backspace" || e.key === "Enter" || e.key === "Delete" || e.key === "Tab") {
         await fetch("/api/admin/type", {
@@ -164,7 +162,7 @@ function ClientViewContent() {
 
   return (
     <div 
-      className="fixed inset-0 bg-black flex items-center justify-center outline-none cursor-default select-none overflow-hidden touch-none"
+      className="fixed inset-0 w-full h-[100dvh] bg-black flex items-center justify-center overflow-hidden select-none touch-none m-0 p-0"
       onClick={(e) => handleInteraction(e.clientX, e.clientY)}
       onTouchStart={(e) => {
         if (e.touches?.[0]) {
@@ -172,7 +170,7 @@ function ClientViewContent() {
         }
       }}
     >
-      {/* Hidden native input optimized for mobile keyboards */}
+      {/* Hidden Mobile Keyboard Input */}
       <input 
         ref={hiddenInputRef}
         type="text" 
@@ -187,16 +185,18 @@ function ClientViewContent() {
       />
 
       {frame ? (
-        <img 
-          ref={imageRef}
-          src={frame} 
-          alt="Remote Browser Viewport" 
-          className="w-full h-full object-contain pointer-events-none"
-        />
+        <div className="relative w-full h-full flex items-center justify-center">
+          <img 
+            ref={imageRef}
+            src={frame} 
+            alt="Mobile Responsive Stream" 
+            className="w-full h-full object-contain max-w-full max-h-[100dvh] pointer-events-none"
+          />
+        </div>
       ) : (
         <div className="flex flex-col items-center gap-3 text-zinc-500">
           <div className="w-8 h-8 border-2 border-zinc-600 border-t-emerald-500 rounded-full animate-spin"></div>
-          <p className="text-xs font-medium">Connecting to session...</p>
+          <p className="text-xs font-medium">Connecting to mobile stream...</p>
         </div>
       )}
     </div>
